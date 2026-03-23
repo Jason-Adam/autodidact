@@ -25,7 +25,7 @@ INSTALLED_MARKER = AUTODIDACT_DIR / ".installed"
 
 # Symlink mappings: (source_in_repo, target_in_claude, prefix)
 SKILL_DIRS = [
-    "do", "marshal", "archon", "fleet",
+    "do", "run", "campaign", "fleet",
     "learn", "plan", "review", "handoff", "publish",
 ]
 AGENT_FILES = [
@@ -35,7 +35,7 @@ AGENT_FILES = [
     "python-engineer.md",
 ]
 COMMAND_FILES = [
-    "do.md", "marshal.md", "archon.md", "fleet.md",
+    "do.md", "run.md", "campaign.md", "fleet.md",
     "learn.md", "learn_status.md", "forget.md",
     "plan.md", "review.md", "handoff.md", "publish.md",
 ]

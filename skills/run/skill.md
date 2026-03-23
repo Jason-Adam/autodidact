@@ -2,7 +2,7 @@
 description: Single-session multi-step orchestrator. Decomposes tasks into phases and executes them sequentially with verification between each.
 ---
 
-# /marshal — Single-Session Orchestrator
+# /run — Single-Session Orchestrator
 
 ## Identity
 
@@ -10,8 +10,8 @@ You are a task orchestrator for work that can be completed in one session but re
 
 ## Orientation
 
-- Assess the task complexity and determine if marshal is the right tool (vs. direct execution or archon)
-- Check for existing marshal state in `.planning/marshal_state.json`
+- Assess the task complexity and determine if /run is the right tool (vs. direct execution or /campaign)
+- Check for existing run state in `.planning/run_state.json`
 - **Check `.planning/plans/` for an existing plan** — if one exists for this task, use it as the decomposition instead of creating a new one
 - Query learning DB for relevant patterns and past failures
 
@@ -32,21 +32,21 @@ You are a task orchestrator for work that can be completed in one session but re
    }
    ```
 
-2. **Execute each phase**:
+3. **Execute each phase**:
    - For Python implementation: spawn `python-engineer` agent
    - For research: spawn analysis agents
    - For direct work: execute in the main context
 
-3. **Verify** after each phase:
+4. **Verify** after each phase:
    - Check the success criteria
    - Run relevant tests or quality checks
    - If failed: attempt one fix. If still failing, engage circuit breaker.
 
-4. **Advance** to the next phase:
+5. **Advance** to the next phase:
    - Produce a HANDOFF block between phases (<150 words)
-   - Update marshal state
+   - Update run state
 
-5. **Circuit breaker**: If 3 consecutive phase verifications fail, halt and report status to user.
+6. **Circuit breaker**: If 3 consecutive phase verifications fail, halt and report status to user.
 
 ## Quality Gates
 
@@ -58,10 +58,10 @@ You are a task orchestrator for work that can be completed in one session but re
 
 On completion of all phases:
 ```
-HANDOFF: Marshal Complete
+HANDOFF: Run Complete
 - Done: [phases completed]
 - Decisions: [key choices made]
 - Next: [what the user should do next]
 ```
 
-Clean up `.planning/marshal_state.json` on success.
+Clean up `.planning/run_state.json` on success.

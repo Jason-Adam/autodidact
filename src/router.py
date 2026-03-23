@@ -27,8 +27,11 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?research\b", "plan"),       # consolidated into /plan (Research phase)
     (r"^/?(do\s+)?plan\b", "plan"),
     (r"^/?(do\s+)?fleet\b", "fleet"),
-    (r"^/?(do\s+)?marshal\b", "marshal"),
-    (r"^/?(do\s+)?archon\b", "archon"),
+    (r"^/do\s+run\b", "run"),                # requires /do prefix to avoid matching "run the tests"
+    (r"^/?run$", "run"),                     # bare "run" with no arguments
+    (r"^/?(do\s+)?marshal\b", "run"),         # legacy alias
+    (r"^/?(do\s+)?campaign\b", "campaign"),
+    (r"^/?(do\s+)?archon\b", "campaign"),     # legacy alias
     (r"^/?(do\s+)?learn\b", "learn"),
     (r"^/?(do\s+)?review\b", "review"),
     (r"^/?(do\s+)?handoff\b", "handoff"),
@@ -50,7 +53,7 @@ def _tier0_pattern_match(prompt: str) -> RouterResult | None:
 # ── Tier 1: Active State Check ─────────────────────────────────────────
 
 def _tier1_active_state(cwd: str) -> RouterResult | None:
-    """Check for active campaigns/fleet/marshal state. Zero cost."""
+    """Check for active campaigns/fleet/run state. Zero cost."""
     if not cwd:
         return None
 
@@ -64,7 +67,7 @@ def _tier1_active_state(cwd: str) -> RouterResult | None:
                 data = json.loads(f.read_text())
                 if data.get("status") == "in_progress":
                     return RouterResult(
-                        skill="archon",
+                        skill="campaign",
                         confidence=0.9,
                         tier=1,
                         reasoning=f"Active campaign: {data.get('name', f.stem)}",
@@ -72,30 +75,35 @@ def _tier1_active_state(cwd: str) -> RouterResult | None:
             except (json.JSONDecodeError, KeyError):
                 pass
 
-    # Active marshal state?
-    marshal_state = planning / "marshal_state.json"
-    if marshal_state.exists():
+    # Active run state?
+    run_state = planning / "run_state.json"
+    if run_state.exists():
         try:
-            data = json.loads(marshal_state.read_text())
+            data = json.loads(run_state.read_text())
             if data.get("status") == "in_progress":
                 return RouterResult(
-                    skill="marshal",
+                    skill="run",
                     confidence=0.9,
                     tier=1,
-                    reasoning="Active marshal sequence",
+                    reasoning="Active run sequence",
                 )
         except (json.JSONDecodeError, KeyError):
             pass
 
     # Active fleet?
-    fleet_dir = planning / "fleet"
-    if fleet_dir.exists() and any(fleet_dir.iterdir()):
-        return RouterResult(
-            skill="fleet",
-            confidence=0.9,
-            tier=1,
-            reasoning="Active fleet session",
-        )
+    fleet_state = planning / "fleet" / "active.json"
+    if fleet_state.exists():
+        try:
+            data = json.loads(fleet_state.read_text())
+            if data.get("status") == "in_progress":
+                return RouterResult(
+                    skill="fleet",
+                    confidence=0.9,
+                    tier=1,
+                    reasoning="Active fleet session",
+                )
+        except (json.JSONDecodeError, KeyError):
+            pass
 
     return None
 
@@ -107,11 +115,11 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("parallel", 0.4), ("worktree", 0.5), ("concurrent", 0.3),
         ("wave", 0.3), ("simultaneously", 0.3),
     ],
-    "marshal": [
+    "run": [
         ("steps", 0.3), ("phases", 0.3), ("sequence", 0.3),
-        ("multi-step", 0.5), ("orchestrate", 0.3),
+        ("multi-step", 0.5), ("orchestrate", 0.3), ("execute", 0.2),
     ],
-    "archon": [
+    "campaign": [
         ("campaign", 0.5), ("multi-session", 0.5), ("long-running", 0.4),
         ("persist", 0.2), ("continue tomorrow", 0.4),
     ],

@@ -8,7 +8,7 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 
 - **Learns from errors** — captures error patterns, remembers fixes, and injects relevant knowledge into future sessions via FTS5 full-text search
 - **Plans before it builds** — a unified `/plan` pipeline that clarifies requirements (Socratic interview), researches the codebase (parallel agents), and produces implementation plans
-- **Orchestrates complex work** — three tiers of orchestration: `/marshal` (single-session), `/archon` (multi-session campaigns), `/fleet` (parallel git worktrees)
+- **Orchestrates complex work** — three tiers of orchestration: `/run` (single-session), `/campaign` (multi-session), `/fleet` (parallel git worktrees)
 - **Routes cheaply** — a cost-ascending `/do` router resolves most requests with zero LLM tokens (pattern match → active state → keyword heuristic) before falling back to classification
 - **Checks quality per-edit** — hooks run ruff/mypy on Python files and eslint on JavaScript files after every edit, feeding results back into the learning DB
 
@@ -22,8 +22,8 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
   └── Tier 3: LLM classification (skill handles it)
         │
         ├── /plan ─── Clarify → Research → Design
-        ├── /marshal ─ single-session multi-step
-        ├── /archon ── multi-session campaigns
+        ├── /run ───── single-session multi-step
+        ├── /campaign  multi-session campaigns
         ├── /fleet ─── parallel worktree waves
         ├── /review ── code review with quality scoring
         ├── /learn ─── teach autodidact something
@@ -123,22 +123,22 @@ The unified planning pipeline. It automatically decides which phases to run:
 
 If requirements are vague, it enters the **Clarify** phase and asks Socratic questions. If the codebase is unfamiliar, it spawns parallel **Research** agents. Then it produces an implementation plan with phases and success criteria.
 
-### `/marshal` — single-session orchestration
+### `/run` — single-session orchestration
 
 For multi-step tasks that fit in one session:
 
 ```
-/marshal refactor the database layer to use connection pooling
+/run refactor the database layer to use connection pooling
 ```
 
 Decomposes into phases, executes sequentially, verifies each phase, and advances. Circuit breaker halts after 3 consecutive failures.
 
-### `/archon` — multi-session campaigns
+### `/campaign` — multi-session campaigns
 
 For work that spans multiple Claude Code sessions:
 
 ```
-/archon migrate from REST to GraphQL
+/campaign migrate from REST to GraphQL
 ```
 
 Persists campaign state in `.planning/campaigns/`. The session-start hook detects active campaigns and offers to resume them.

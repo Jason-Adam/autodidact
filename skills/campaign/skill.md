@@ -2,7 +2,7 @@
 description: Multi-session campaign orchestrator. Persists state across sessions for long-running tasks that span multiple Claude Code invocations.
 ---
 
-# /archon — Campaign Orchestrator
+# /campaign — Multi-Session Orchestrator
 
 ## Identity
 
@@ -36,7 +36,7 @@ You are a campaign manager for work that spans multiple sessions. You maintain p
    }
    ```
 
-2. **Begin Phase 1** using the same execute-verify-advance loop as marshal
+2. **Begin Phase 1** using the same execute-verify-advance loop as /run
 
 3. **On session end** (before the user leaves):
    - Update campaign file with progress
@@ -52,9 +52,9 @@ You are a campaign manager for work that spans multiple sessions. You maintain p
 
 ### Campaign Management
 
-- `archon status` — show all campaigns and their progress
-- `archon continue` — resume the most recent active campaign
-- `archon close [slug]` — mark a campaign as completed
+- `campaign status` — show all campaigns and their progress
+- `campaign continue` — resume the most recent active campaign
+- `campaign close [slug]` — mark a campaign as completed
 
 ## Quality Gates
 
@@ -67,7 +67,7 @@ You are a campaign manager for work that spans multiple sessions. You maintain p
 
 At session end:
 ```
-HANDOFF: Archon Session End
+HANDOFF: Campaign Session End
 - Campaign: [name]
 - Phase: [current] of [total]
 - Done this session: [what was completed]

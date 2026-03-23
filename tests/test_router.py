@@ -27,9 +27,34 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "fleet")
         self.assertEqual(r.tier, 0)
 
-    def test_do_prefix(self) -> None:
+    def test_do_prefix_run(self) -> None:
+        r = classify("/do run refactor the DB")
+        self.assertEqual(r.skill, "run")
+        self.assertEqual(r.tier, 0)
+
+    def test_bare_run(self) -> None:
+        r = classify("run")
+        self.assertEqual(r.skill, "run")
+        self.assertEqual(r.tier, 0)
+
+    def test_run_does_not_match_natural_language(self) -> None:
+        """'run the tests' should NOT route to /run skill."""
+        r = classify("run the tests")
+        self.assertNotEqual(r.skill, "run")
+
+    def test_marshal_legacy_alias(self) -> None:
         r = classify("do marshal")
-        self.assertEqual(r.skill, "marshal")
+        self.assertEqual(r.skill, "run")
+        self.assertEqual(r.tier, 0)
+
+    def test_campaign(self) -> None:
+        r = classify("/do campaign")
+        self.assertEqual(r.skill, "campaign")
+        self.assertEqual(r.tier, 0)
+
+    def test_archon_legacy_alias(self) -> None:
+        r = classify("archon")
+        self.assertEqual(r.skill, "campaign")
         self.assertEqual(r.tier, 0)
 
     def test_learn_status(self) -> None:
@@ -58,7 +83,7 @@ class TestTier1ActiveState(unittest.TestCase):
                 "status": "in_progress",
             }))
             r = classify("continue working", cwd=tmpdir)
-            self.assertEqual(r.skill, "archon")
+            self.assertEqual(r.skill, "campaign")
             self.assertEqual(r.tier, 1)
 
     def test_no_active_state(self) -> None:
@@ -70,7 +95,7 @@ class TestTier1ActiveState(unittest.TestCase):
 class TestTier2KeywordHeuristic(unittest.TestCase):
 
     def test_parallel_routes_to_fleet(self) -> None:
-        r = classify("run these tasks in parallel across worktrees")
+        r = classify("execute these tasks in parallel across worktrees")
         self.assertEqual(r.skill, "fleet")
         self.assertEqual(r.tier, 2)
 

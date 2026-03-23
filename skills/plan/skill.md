@@ -106,7 +106,7 @@ When entering this phase:
    ```
    Plan is saved to `.planning/plans/YYYY-MM-DD-{slug}.md`
 
-5. **Auto-publish** (if `AUTODIDACT_THOUGHTS_REPO` is configured): invoke `/publish` with the saved file path. The local copy is kept for marshal/archon/fleet to read.
+5. **Auto-publish** (if `AUTODIDACT_THOUGHTS_REPO` is configured): invoke `/publish` with the saved file path. The local copy is kept for /run, /campaign, and /fleet to read.
 
 ## Quality Gates
 
@@ -119,8 +119,8 @@ When entering this phase:
 ## Exit Protocol
 
 Once approved, suggest the next step:
-- Simple plans → execute directly or use `/marshal`
-- Complex plans → use `/archon` for multi-session execution
+- Simple plans → execute directly or use `/run`
+- Complex plans → use `/campaign` for multi-session execution
 - Parallelizable plans → use `/fleet`
 
 Record planning learnings in the DB (what patterns were discovered, what questions helped).

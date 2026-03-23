@@ -58,7 +58,7 @@ def main() -> None:
                     campaign = json.loads(campaign_file.read_text())
                     if campaign.get("status") == "in_progress":
                         name = campaign.get("name", campaign_file.stem)
-                        messages.append(f"ACTIVE CAMPAIGN: {name} — use /archon to resume.")
+                        messages.append(f"ACTIVE CAMPAIGN: {name} — use /campaign to resume.")
                 except (json.JSONDecodeError, KeyError):
                     pass
 

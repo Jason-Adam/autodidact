@@ -67,7 +67,7 @@ You are a document publisher. You take a local research or plan document and pub
 
 7. **Handle source file cleanup**:
    - **Research documents**: delete the local file after successful publish (it lives in the thoughts repo now)
-   - **Plan documents**: keep the local file (marshal/archon need it for implementation tracking)
+   - **Plan documents**: keep the local file (/run, /campaign, and /fleet need it for implementation tracking)
 
 8. **Report result**: Show the merged PR URL and confirm the document is in the thoughts repo.
 

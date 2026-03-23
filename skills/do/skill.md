@@ -13,7 +13,7 @@ You are the autodidact dispatcher. Your job is to understand the user's intent a
 The `/do` command is the primary entry point for all autodidact functionality. It uses a cost-ascending tier system:
 
 - **Tier 0** (zero cost): Pattern match against known commands
-- **Tier 1** (zero cost): Check for active campaigns/fleet/marshal state
+- **Tier 1** (zero cost): Check for active campaigns/fleet/run state
 - **Tier 2** (low cost): Keyword heuristic scoring
 - **Tier 3** (LLM cost): You classify the intent when tiers 0-2 fail
 
@@ -25,8 +25,8 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 
 2. **If classification reached Tier 3** (no deterministic match), classify the user's intent into one of these categories:
    - `plan` — User needs to clarify, research, or plan (all three are one pipeline)
-   - `marshal` — Task needs multi-step orchestration in one session
-   - `archon` — Task spans multiple sessions (campaign)
+   - `run` — Task needs multi-step orchestration in one session
+   - `campaign` — Task spans multiple sessions
    - `fleet` — Task can be parallelized across worktrees
    - `review` — User wants code review
    - `handoff` — User wants to create a session transfer document
