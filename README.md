@@ -87,7 +87,7 @@ git clone https://github.com/Jason-Adam/autodidact.git
 cd autodidact
 uv sync                       # install dependencies and create .venv
 uv run pre-commit install     # set up pre-commit hooks (ruff lint, ruff format, mypy)
-python3 install.py            # install globally to ~/.claude/
+uv run python3 install.py     # install globally to ~/.claude/
 ```
 
 This will:
