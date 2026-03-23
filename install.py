@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_DIR = Path(__file__).resolve().parent
@@ -25,19 +25,40 @@ INSTALLED_MARKER = AUTODIDACT_DIR / ".installed"
 
 # Symlink mappings: (source_in_repo, target_in_claude, prefix)
 SKILL_DIRS = [
-    "do", "run", "campaign", "fleet",
-    "learn", "plan", "review", "handoff", "publish",
+    "do",
+    "run",
+    "campaign",
+    "fleet",
+    "learn",
+    "plan",
+    "review",
+    "handoff",
+    "publish",
 ]
 AGENT_FILES = [
-    "interviewer.md", "fleet-worker.md", "quality-scorer.md",
-    "codebase-analyzer.md", "codebase-locator.md", "pattern-finder.md",
-    "architecture-researcher.md", "web-researcher.md", "code-reviewer.md",
+    "interviewer.md",
+    "fleet-worker.md",
+    "quality-scorer.md",
+    "codebase-analyzer.md",
+    "codebase-locator.md",
+    "pattern-finder.md",
+    "architecture-researcher.md",
+    "web-researcher.md",
+    "code-reviewer.md",
     "python-engineer.md",
 ]
 COMMAND_FILES = [
-    "do.md", "run.md", "campaign.md", "fleet.md",
-    "learn.md", "learn_status.md", "forget.md",
-    "plan.md", "review.md", "handoff.md", "publish.md",
+    "do.md",
+    "run.md",
+    "campaign.md",
+    "fleet.md",
+    "learn.md",
+    "learn_status.md",
+    "forget.md",
+    "plan.md",
+    "review.md",
+    "handoff.md",
+    "publish.md",
 ]
 
 HOOK_EVENTS = {
@@ -88,15 +109,16 @@ def _patch_settings() -> None:
             command = f"uv run --project {REPO_DIR} python3 {hooks_dir / script}"
             # Check if already registered (also match legacy python3-only commands)
             already = any(
-                h.get("command") == command
-                or h.get("command") == f"python3 {hooks_dir / script}"
+                h.get("command") == command or h.get("command") == f"python3 {hooks_dir / script}"
                 for h in event_hooks
             )
             if not already:
-                event_hooks.append({
-                    "matcher": "",
-                    "command": command,
-                })
+                event_hooks.append(
+                    {
+                        "matcher": "",
+                        "command": command,
+                    }
+                )
         hooks[event] = event_hooks
 
     settings["hooks"] = hooks
@@ -179,17 +201,23 @@ def install() -> None:
     # Initialize learning DB
     sys.path.insert(0, str(REPO_DIR))
     from src.db import LearningDB
+
     db = LearningDB()
     db.close()
     print(f"  -> Initialized learning DB at {db.db_path}")
 
     # Write installed marker
     INSTALLED_MARKER.parent.mkdir(parents=True, exist_ok=True)
-    INSTALLED_MARKER.write_text(json.dumps({
-        "version": "0.1.0",
-        "installed_at": datetime.now(timezone.utc).isoformat(),
-        "repo_dir": str(REPO_DIR),
-    }, indent=2))
+    INSTALLED_MARKER.write_text(
+        json.dumps(
+            {
+                "version": "0.1.0",
+                "installed_at": datetime.now(UTC).isoformat(),
+                "repo_dir": str(REPO_DIR),
+            },
+            indent=2,
+        )
+    )
     print(f"  -> Wrote {INSTALLED_MARKER.relative_to(CLAUDE_DIR)}")
 
     print("\nAutodidact installed successfully.")

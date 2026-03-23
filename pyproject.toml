@@ -45,4 +45,5 @@ dev = [
     "ruff",
     "mypy",
     "pytest",
+    "pre-commit>=4.5.1",
 ]

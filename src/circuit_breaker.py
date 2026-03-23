@@ -10,6 +10,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -20,7 +21,7 @@ class CircuitState:
     last_failure: str = ""
     last_failure_context: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "consecutive_failures": self.consecutive_failures,
             "max_failures": self.max_failures,
@@ -30,7 +31,7 @@ class CircuitState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> CircuitState:
+    def from_dict(cls, data: dict[str, Any]) -> CircuitState:
         return cls(
             consecutive_failures=data.get("consecutive_failures", 0),
             max_failures=data.get("max_failures", 3),
@@ -87,7 +88,7 @@ class CircuitBreaker:
         self.state = CircuitState(max_failures=self.state.max_failures)
         self._save()
 
-    def status(self) -> dict:
+    def status(self) -> dict[str, Any]:
         return {
             "is_open": self.state.is_open,
             "consecutive_failures": self.state.consecutive_failures,
