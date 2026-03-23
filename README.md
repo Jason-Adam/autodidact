@@ -85,14 +85,17 @@ If `AUTODIDACT_THOUGHTS_REPO` is set, documents are also auto-published to a Git
 ```bash
 git clone https://github.com/Jason-Adam/autodidact.git
 cd autodidact
-uv sync            # install dev dependencies and create .venv
-python3 install.py # install globally to ~/.claude/
+uv sync                       # install dependencies and create .venv
+uv run pre-commit install     # set up pre-commit hooks (ruff lint, ruff format, mypy)
+python3 install.py            # install globally to ~/.claude/
 ```
 
 This will:
 1. Symlink skills, agents, and commands into `~/.claude/`
 2. Register 8 hooks in `~/.claude/settings.json` (hooks run via `uv run` so they have access to project dependencies)
 3. Initialize the learning database at `~/.claude/autodidact/learning.db`
+
+Every commit will automatically run ruff lint, ruff format, and mypy strict via pre-commit.
 
 To uninstall:
 
