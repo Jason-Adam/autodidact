@@ -66,19 +66,32 @@ Research findings and implementation plans are saved as structured markdown in t
 
 If `AUTODIDACT_THOUGHTS_REPO` is set, documents are also auto-published to a GitHub thoughts repo via `/publish` (worktree → PR → squash merge). Research docs are deleted locally after publish; plans are kept for implementation tracking.
 
-## Installation
+## Prerequisites
 
-Requires Python 3.10+ (stdlib only — no third-party dependencies).
+| Tool | Required | Purpose |
+|------|----------|---------|
+| [Python 3.11+](https://www.python.org/) | Yes | Runtime for hooks and core library |
+| [uv](https://docs.astral.sh/uv/) | Yes | Package/project management; hooks run through `uv run` |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Yes | The AI coding tool this harness extends |
+| [git](https://git-scm.com/) | Yes | Version control, worktree isolation for fleet |
+| [gh](https://cli.github.com/) | For `/publish` | GitHub CLI for auto-publishing to thoughts repo |
+| [ruff](https://docs.astral.sh/ruff/) | For quality checks | Linting/formatting Python files on every edit |
+| [mypy](https://mypy-lang.org/) | Optional | Type checking Python files (runs if project has mypy config) |
+
+`ruff` and `mypy` are installed as dev dependencies via `uv sync` — no separate install needed.
+
+## Installation
 
 ```bash
 git clone https://github.com/Jason-Adam/autodidact.git
 cd autodidact
-python3 install.py
+uv sync            # install dev dependencies and create .venv
+python3 install.py # install globally to ~/.claude/
 ```
 
 This will:
 1. Symlink skills, agents, and commands into `~/.claude/`
-2. Register 8 hooks in `~/.claude/settings.json` (backs up existing settings first)
+2. Register 8 hooks in `~/.claude/settings.json` (hooks run via `uv run` so they have access to project dependencies)
 3. Initialize the learning database at `~/.claude/autodidact/learning.db`
 
 To uninstall:
