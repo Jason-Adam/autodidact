@@ -10,7 +10,6 @@ from src.circuit_breaker import CircuitBreaker
 
 
 class TestCircuitBreaker(unittest.TestCase):
-
     def test_starts_closed(self) -> None:
         cb = CircuitBreaker()
         self.assertFalse(cb.is_open())

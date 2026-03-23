@@ -7,8 +7,6 @@ import unittest
 from pathlib import Path
 
 from src.interview import (
-    AMBIGUITY_THRESHOLD,
-    AmbiguityScore,
     DimensionScore,
     InterviewState,
     compute_ambiguity,
@@ -21,7 +19,6 @@ from src.interview import (
 
 
 class TestBrownfieldDetection(unittest.TestCase):
-
     def test_detects_pyproject(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "pyproject.toml").touch()
@@ -49,7 +46,6 @@ class TestBrownfieldDetection(unittest.TestCase):
 
 
 class TestScoringDimensions(unittest.TestCase):
-
     def test_greenfield_has_3_dimensions(self) -> None:
         dims = get_scoring_dimensions(is_brownfield=False)
         self.assertEqual(len(dims), 3)
@@ -64,7 +60,6 @@ class TestScoringDimensions(unittest.TestCase):
 
 
 class TestAmbiguityScoring(unittest.TestCase):
-
     def test_all_clear(self) -> None:
         dims = [
             DimensionScore("scope", 1.0, 0.4),
@@ -108,7 +103,6 @@ class TestAmbiguityScoring(unittest.TestCase):
 
 
 class TestClarificationTargets(unittest.TestCase):
-
     def test_identifies_weak_dimensions(self) -> None:
         dims = [
             DimensionScore("scope", 0.9, 0.4),
@@ -122,7 +116,6 @@ class TestClarificationTargets(unittest.TestCase):
 
 
 class TestStatePersistence(unittest.TestCase):
-
     def test_save_and_load(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             state = InterviewState(
@@ -144,16 +137,19 @@ class TestStatePersistence(unittest.TestCase):
 
     def test_roundtrip_with_rounds(self) -> None:
         from src.interview import InterviewRound
+
         with tempfile.TemporaryDirectory() as tmpdir:
             state = InterviewState(
                 interview_id="test-456",
                 initial_context="Build a web app",
             )
-            state.rounds.append(InterviewRound(
-                round_number=1,
-                question="What problem does this solve?",
-                answer="It manages tasks",
-            ))
+            state.rounds.append(
+                InterviewRound(
+                    round_number=1,
+                    question="What problem does this solve?",
+                    answer="It manages tasks",
+                )
+            )
             save_state(state, Path(tmpdir))
             loaded = load_state("test-456", Path(tmpdir))
             assert loaded is not None

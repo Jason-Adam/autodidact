@@ -12,10 +12,11 @@ from dataclasses import dataclass
 @dataclass
 class HandoffBlock:
     """A compact state transfer between skills/agents/sessions."""
-    source: str        # skill or agent that produced this
-    summary: str       # 1-line summary
-    completed: list[str]   # what was done
-    decisions: list[str]   # key decisions made
+
+    source: str  # skill or agent that produced this
+    summary: str  # 1-line summary
+    completed: list[str]  # what was done
+    decisions: list[str]  # key decisions made
     next_steps: list[str]  # what should happen next
     context_files: list[str] = None  # type: ignore[assignment]
 

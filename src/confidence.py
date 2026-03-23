@@ -26,6 +26,7 @@ INJECTION_LIMIT = 5
 
 # ── Pure Functions ──────────────────────────────────────────────────────
 
+
 def boost(current: float, amount: float = BOOST_DEFAULT) -> float:
     """Increase confidence, capped at 1.0."""
     return min(current + amount, CONFIDENCE_CAP)

@@ -10,7 +10,6 @@ from src.db import LearningDB
 
 
 class TestLearningDB(unittest.TestCase):
-
     def setUp(self) -> None:
         self.tmpdir = tempfile.mkdtemp()
         self.db_path = Path(self.tmpdir) / "test_learning.db"
@@ -133,9 +132,7 @@ class TestLearningDB(unittest.TestCase):
 
     def test_graduate_eligible(self) -> None:
         lid = self.db.record("pattern", "grad_test", "value", confidence=0.95)
-        self.db.conn.execute(
-            "UPDATE learnings SET observation_count = 10 WHERE id = ?", (lid,)
-        )
+        self.db.conn.execute("UPDATE learnings SET observation_count = 10 WHERE id = ?", (lid,))
         self.db.conn.commit()
         result = self.db.graduate(lid, "CLAUDE.md")
         self.assertTrue(result)
@@ -180,7 +177,9 @@ class TestLearningDB(unittest.TestCase):
 
     def test_get_by_error_signature(self) -> None:
         self.db.record(
-            "error", "sig_test", "Fix: add import",
+            "error",
+            "sig_test",
+            "Fix: add import",
             error_signature="ModuleNotFoundError: foo",
         )
         row = self.db.get_by_error_signature("ModuleNotFoundError: foo")

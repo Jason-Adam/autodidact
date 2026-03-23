@@ -11,10 +11,9 @@ import json
 import subprocess
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
 
 WORKTREE_DIR = ".worktrees"
 BRANCH_PREFIX = "fleet"
@@ -23,6 +22,7 @@ STATE_FILE = "active.json"
 
 
 # ── State Model ─────────────────────────────────────────────────────────
+
 
 @dataclass
 class WorkerState:
@@ -87,7 +87,7 @@ class FleetState:
 
     def __post_init__(self) -> None:
         if not self.created:
-            self.created = datetime.now(timezone.utc).isoformat()
+            self.created = datetime.now(UTC).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -117,6 +117,7 @@ class FleetState:
 
 
 # ── Worktree Manager ───────────────────────────────────────────────────
+
 
 class WorktreeManager:
     """Manages git worktrees and fleet state for parallel execution."""

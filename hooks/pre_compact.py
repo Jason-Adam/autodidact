@@ -52,7 +52,8 @@ def main() -> None:
         db = LearningDB()
         if session_id:
             rows = db.conn.execute(
-                "SELECT id, topic, key, value, confidence FROM learnings WHERE session_id = ? LIMIT 20",
+                "SELECT id, topic, key, value, confidence "
+                "FROM learnings WHERE session_id = ? LIMIT 20",
                 (session_id,),
             ).fetchall()
             if rows:
@@ -62,9 +63,7 @@ def main() -> None:
         # Write compact state
         planning_dir = Path(cwd) / ".planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
-        (planning_dir / "compact_state.json").write_text(
-            json.dumps(compact_state, indent=2)
-        )
+        (planning_dir / "compact_state.json").write_text(json.dumps(compact_state, indent=2))
     except Exception:
         pass  # Graceful degradation
 

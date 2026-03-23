@@ -17,7 +17,6 @@ from src.confidence import (
 
 
 class TestConfidence(unittest.TestCase):
-
     # ── Boost ───────────────────────────────────────────────────────
 
     def test_boost_default(self) -> None:

@@ -41,10 +41,7 @@ def check_installation() -> dict[str, bool]:
         hooks_dir = repo_dir / "hooks"
         for event in ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse"]:
             event_hooks = hooks.get(event, [])
-            has_autodidact = any(
-                str(hooks_dir) in h.get("command", "")
-                for h in event_hooks
-            )
+            has_autodidact = any(str(hooks_dir) in h.get("command", "") for h in event_hooks)
             if not has_autodidact:
                 issues[f"hook_missing_{event}"] = True
 
@@ -67,18 +64,21 @@ def sync() -> None:
         print("Some hooks are missing from settings.json. Re-running install...")
         # Import and re-patch
         import importlib
+
         install_mod = importlib.import_module("install")
         install_mod._patch_settings()
 
     if issues.get("src_symlink_broken"):
         print("Source symlink broken. Re-running install...")
         import importlib
+
         install_mod = importlib.import_module("install")
         install_mod.install()
         return
 
     # Run DB migrations
     from src.db import LearningDB
+
     db = LearningDB()
     db.close()
     print("Sync complete. All good.")

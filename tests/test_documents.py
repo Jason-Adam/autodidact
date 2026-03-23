@@ -18,7 +18,6 @@ from src.documents import (
 
 
 class TestSlugify(unittest.TestCase):
-
     def test_basic(self) -> None:
         self.assertEqual(_slugify("Rate Limiting API"), "rate-limiting-api")
 
@@ -38,7 +37,6 @@ class TestSlugify(unittest.TestCase):
 
 
 class TestGenerateFilename(unittest.TestCase):
-
     def test_format(self) -> None:
         filename = generate_filename("Rate Limiting")
         self.assertRegex(filename, r"^\d{4}-\d{2}-\d{2}-rate-limiting\.md$")
@@ -49,7 +47,6 @@ class TestGenerateFilename(unittest.TestCase):
 
 
 class TestGenerateFrontmatter(unittest.TestCase):
-
     def test_contains_required_fields(self) -> None:
         fm = generate_frontmatter("Test Topic")
         self.assertIn("---", fm)
@@ -64,7 +61,6 @@ class TestGenerateFrontmatter(unittest.TestCase):
 
 
 class TestSaveAndLoad(unittest.TestCase):
-
     def test_save_research_has_frontmatter(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = save_document(
@@ -99,13 +95,11 @@ class TestSaveAndLoad(unittest.TestCase):
             self.assertTrue(path.exists())
 
     def test_invalid_doc_type(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with self.assertRaises(ValueError):
-                save_document("test", doc_type="invalid", topic="test", cwd=tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir, self.assertRaises(ValueError):
+            save_document("test", doc_type="invalid", topic="test", cwd=tmpdir)
 
 
 class TestListDocuments(unittest.TestCase):
-
     def test_list_returns_sorted(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             save_document("doc1", doc_type="plans", topic="first", cwd=tmpdir)
@@ -122,7 +116,6 @@ class TestListDocuments(unittest.TestCase):
 
 
 class TestGetLatest(unittest.TestCase):
-
     def test_get_latest_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             save_document("old", doc_type="plans", topic="old-plan", cwd=tmpdir)

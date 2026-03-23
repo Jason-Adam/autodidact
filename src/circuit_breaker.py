@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -64,7 +64,7 @@ class CircuitBreaker:
     def record_failure(self, context: str = "") -> bool:
         """Record a failure. Returns True if circuit is now open (should stop)."""
         self.state.consecutive_failures += 1
-        self.state.last_failure = datetime.now(timezone.utc).isoformat()
+        self.state.last_failure = datetime.now(UTC).isoformat()
         self.state.last_failure_context = context
         if self.state.consecutive_failures >= self.state.max_failures:
             self.state.is_open = True

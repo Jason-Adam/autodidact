@@ -26,7 +26,6 @@ def main() -> None:
         hook_input = {}
 
     prompt = hook_input.get("userMessage", "")
-    cwd = hook_input.get("cwd", "")
 
     if not prompt or not prompt.strip():
         json.dump({}, sys.stdout)
@@ -41,8 +40,11 @@ def main() -> None:
         learnings = db.query_fts(prompt, limit=5, min_confidence=0.3)
         if learnings:
             lines = ["RELEVANT LEARNINGS:"]
-            for l in learnings:
-                lines.append(f"  [{l['topic']}/{l['key']}] {l['value']} (conf: {l['confidence']:.2f})")
+            for entry in learnings:
+                lines.append(
+                    f"  [{entry['topic']}/{entry['key']}] "
+                    f"{entry['value']} (conf: {entry['confidence']:.2f})"
+                )
             messages.append("\n".join(lines))
 
         db.close()

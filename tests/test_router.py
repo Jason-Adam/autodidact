@@ -11,7 +11,6 @@ from src.router import classify
 
 
 class TestTier0PatternMatch(unittest.TestCase):
-
     def test_interview_routes_to_plan(self) -> None:
         r = classify("/do interview")
         self.assertEqual(r.skill, "plan")
@@ -73,15 +72,18 @@ class TestTier0PatternMatch(unittest.TestCase):
 
 
 class TestTier1ActiveState(unittest.TestCase):
-
     def test_active_campaign(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             campaigns = Path(tmpdir) / ".planning" / "campaigns"
             campaigns.mkdir(parents=True)
-            (campaigns / "test.json").write_text(json.dumps({
-                "name": "test campaign",
-                "status": "in_progress",
-            }))
+            (campaigns / "test.json").write_text(
+                json.dumps(
+                    {
+                        "name": "test campaign",
+                        "status": "in_progress",
+                    }
+                )
+            )
             r = classify("continue working", cwd=tmpdir)
             self.assertEqual(r.skill, "campaign")
             self.assertEqual(r.tier, 1)
@@ -93,7 +95,6 @@ class TestTier1ActiveState(unittest.TestCase):
 
 
 class TestTier2KeywordHeuristic(unittest.TestCase):
-
     def test_parallel_routes_to_fleet(self) -> None:
         r = classify("execute these tasks in parallel across worktrees")
         self.assertEqual(r.skill, "fleet")
@@ -115,7 +116,6 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
 
 
 class TestTier3Fallthrough(unittest.TestCase):
-
     def test_unmatched_returns_classify(self) -> None:
         r = classify("fix the bug in the login form")
         self.assertEqual(r.skill, "classify")

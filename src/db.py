@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS routing_gaps (
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class LearningDB:
@@ -142,14 +142,29 @@ class LearningDB:
                 source = CASE WHEN excluded.source != '' THEN excluded.source ELSE source END,
                 observation_count = observation_count + 1,
                 last_seen = excluded.last_seen,
-                error_signature = CASE WHEN excluded.error_signature != '' THEN excluded.error_signature ELSE error_signature END,
-                fix_type = CASE WHEN excluded.fix_type != '' THEN excluded.fix_type ELSE fix_type END,
-                fix_action = CASE WHEN excluded.fix_action != '' THEN excluded.fix_action ELSE fix_action END
+                error_signature = CASE WHEN excluded.error_signature != ''
+                    THEN excluded.error_signature ELSE error_signature END,
+                fix_type = CASE WHEN excluded.fix_type != ''
+                    THEN excluded.fix_type ELSE fix_type END,
+                fix_action = CASE WHEN excluded.fix_action != ''
+                    THEN excluded.fix_action ELSE fix_action END
             """,
             (
-                topic, key, value, category, confidence, tags, source,
-                project_path, session_id, now, now,
-                error_signature, error_type, fix_type, fix_action,
+                topic,
+                key,
+                value,
+                category,
+                confidence,
+                tags,
+                source,
+                project_path,
+                session_id,
+                now,
+                now,
+                error_signature,
+                error_type,
+                fix_type,
+                fix_action,
             ),
         )
         self.conn.commit()
@@ -168,9 +183,7 @@ class LearningDB:
         if not search_text.strip():
             return []
         # Sanitize for FTS5: remove special chars that break queries
-        safe_text = "".join(
-            c if c.isalnum() or c.isspace() else " " for c in search_text
-        )
+        safe_text = "".join(c if c.isalnum() or c.isspace() else " " for c in search_text)
         tokens = safe_text.split()
         if not tokens:
             return []
@@ -192,9 +205,7 @@ class LearningDB:
         return [dict(r) for r in rows]
 
     def get_by_id(self, learning_id: int) -> dict[str, Any] | None:
-        row = self.conn.execute(
-            "SELECT * FROM learnings WHERE id = ?", (learning_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM learnings WHERE id = ?", (learning_id,)).fetchone()
         return dict(row) if row else None
 
     def get_by_error_signature(self, signature: str) -> dict[str, Any] | None:
@@ -264,7 +275,7 @@ class LearningDB:
 
     def time_decay(self, learning_ids: list[int], rate: float = 0.01) -> None:
         """Apply time-based decay. Called on session Stop."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for lid in learning_ids:
             row = self.conn.execute(
                 "SELECT last_seen, confidence FROM learnings WHERE id = ?",
@@ -275,7 +286,7 @@ class LearningDB:
             last_seen = datetime.fromisoformat(row["last_seen"])
             # Normalize timezone: make both aware or both naive
             if last_seen.tzinfo is None:
-                last_seen = last_seen.replace(tzinfo=timezone.utc)
+                last_seen = last_seen.replace(tzinfo=UTC)
             days = (now - last_seen).days
             if days <= 0:
                 continue
@@ -319,7 +330,7 @@ class LearningDB:
 
     def prune(self, *, max_age_days: int = 90, min_confidence: float = 0.1) -> int:
         """Delete stale low-confidence learnings. Returns count deleted."""
-        cutoff = datetime.now(timezone.utc)
+        cutoff = datetime.now(UTC)
         cursor = self.conn.execute(
             """
             DELETE FROM learnings

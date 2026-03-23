@@ -23,15 +23,15 @@ class RouterResult:
 # ── Tier 0: Pattern Match ──────────────────────────────────────────────
 
 _DIRECT_PATTERNS: list[tuple[str, str]] = [
-    (r"^/?(do\s+)?interview\b", "plan"),      # consolidated into /plan (Clarify phase)
-    (r"^/?(do\s+)?research\b", "plan"),       # consolidated into /plan (Research phase)
+    (r"^/?(do\s+)?interview\b", "plan"),  # consolidated into /plan (Clarify phase)
+    (r"^/?(do\s+)?research\b", "plan"),  # consolidated into /plan (Research phase)
     (r"^/?(do\s+)?plan\b", "plan"),
     (r"^/?(do\s+)?fleet\b", "fleet"),
-    (r"^/do\s+run\b", "run"),                # requires /do prefix to avoid matching "run the tests"
-    (r"^/?run$", "run"),                     # bare "run" with no arguments
-    (r"^/?(do\s+)?marshal\b", "run"),         # legacy alias
+    (r"^/do\s+run\b", "run"),  # requires /do prefix to avoid matching "run the tests"
+    (r"^/?run$", "run"),  # bare "run" with no arguments
+    (r"^/?(do\s+)?marshal\b", "run"),  # legacy alias
     (r"^/?(do\s+)?campaign\b", "campaign"),
-    (r"^/?(do\s+)?archon\b", "campaign"),     # legacy alias
+    (r"^/?(do\s+)?archon\b", "campaign"),  # legacy alias
     (r"^/?(do\s+)?learn\b", "learn"),
     (r"^/?(do\s+)?review\b", "review"),
     (r"^/?(do\s+)?handoff\b", "handoff"),
@@ -51,6 +51,7 @@ def _tier0_pattern_match(prompt: str) -> RouterResult | None:
 
 
 # ── Tier 1: Active State Check ─────────────────────────────────────────
+
 
 def _tier1_active_state(cwd: str) -> RouterResult | None:
     """Check for active campaigns/fleet/run state. Zero cost."""
@@ -112,34 +113,59 @@ def _tier1_active_state(cwd: str) -> RouterResult | None:
 
 _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
     "fleet": [
-        ("parallel", 0.4), ("worktree", 0.5), ("concurrent", 0.3),
-        ("wave", 0.3), ("simultaneously", 0.3),
+        ("parallel", 0.4),
+        ("worktree", 0.5),
+        ("concurrent", 0.3),
+        ("wave", 0.3),
+        ("simultaneously", 0.3),
     ],
     "run": [
-        ("steps", 0.3), ("phases", 0.3), ("sequence", 0.3),
-        ("multi-step", 0.5), ("orchestrate", 0.3), ("execute", 0.2),
+        ("steps", 0.3),
+        ("phases", 0.3),
+        ("sequence", 0.3),
+        ("multi-step", 0.5),
+        ("orchestrate", 0.3),
+        ("execute", 0.2),
     ],
     "campaign": [
-        ("campaign", 0.5), ("multi-session", 0.5), ("long-running", 0.4),
-        ("persist", 0.2), ("continue tomorrow", 0.4),
+        ("campaign", 0.5),
+        ("multi-session", 0.5),
+        ("long-running", 0.4),
+        ("persist", 0.2),
+        ("continue tomorrow", 0.4),
     ],
     "plan": [
-        ("plan", 0.5), ("design", 0.3), ("approach", 0.3),
-        ("strategy", 0.3), ("implementation plan", 0.5),
+        ("plan", 0.5),
+        ("design", 0.3),
+        ("approach", 0.3),
+        ("strategy", 0.3),
+        ("implementation plan", 0.5),
         # Former /interview keywords
-        ("clarify", 0.4), ("unclear", 0.4), ("ambiguous", 0.4),
-        ("requirements", 0.3), ("scope", 0.2),
+        ("clarify", 0.4),
+        ("unclear", 0.4),
+        ("ambiguous", 0.4),
+        ("requirements", 0.3),
+        ("scope", 0.2),
         # Former /research keywords
-        ("explore", 0.3), ("investigate", 0.4), ("understand", 0.2),
-        ("how does", 0.3), ("architecture", 0.2),
+        ("explore", 0.3),
+        ("investigate", 0.4),
+        ("understand", 0.2),
+        ("how does", 0.3),
+        ("architecture", 0.2),
     ],
     "review": [
-        ("review", 0.5), ("code review", 0.6), ("check quality", 0.4),
-        ("audit", 0.3), ("inspect", 0.3),
+        ("review", 0.5),
+        ("code review", 0.6),
+        ("check quality", 0.4),
+        ("audit", 0.3),
+        ("inspect", 0.3),
     ],
     "handoff": [
-        ("handoff", 0.6), ("hand off", 0.6), ("transfer", 0.3),
-        ("session summary", 0.4), ("context transfer", 0.5),
+        ("handoff", 0.6),
+        ("hand off", 0.6),
+        ("transfer", 0.3),
+        ("session summary", 0.4),
+        ("context transfer", 0.5),
     ],
 }
 
@@ -167,6 +193,7 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
 
 
 # ── Public API ──────────────────────────────────────────────────────────
+
 
 def classify(prompt: str, cwd: str = "") -> RouterResult:
     """Cost-ascending classification. Tiers 0-2 are deterministic.

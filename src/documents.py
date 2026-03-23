@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -30,21 +30,30 @@ def _git_info(cwd: str) -> dict[str, str]:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=cwd, capture_output=True, text=True, timeout=5,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             info["commit"] = result.stdout.strip()
 
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=cwd, capture_output=True, text=True, timeout=5,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             info["branch"] = result.stdout.strip()
 
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            cwd=cwd, capture_output=True, text=True, timeout=5,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             url = result.stdout.strip()
@@ -61,7 +70,10 @@ def _current_user() -> str:
     """Get the current system username."""
     try:
         result = subprocess.run(
-            ["whoami"], capture_output=True, text=True, timeout=5,
+            ["whoami"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return result.stdout.strip() if result.returncode == 0 else "autodidact"
     except (subprocess.TimeoutExpired, OSError):
@@ -70,7 +82,7 @@ def _current_user() -> str:
 
 def generate_filename(topic: str) -> str:
     """Generate a document filename: YYYY-MM-DD-{slug}.md"""
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_str = datetime.now(UTC).strftime("%Y-%m-%d")
     slug = _slugify(topic)
     if not slug:
         slug = "untitled"
@@ -82,7 +94,7 @@ def generate_frontmatter(topic: str, cwd: str = "", tags: list[str] | None = Non
 
     Plans do NOT get frontmatter (flat markdown per convention).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     git = _git_info(cwd)
 
     if tags is None:
@@ -100,7 +112,7 @@ def generate_frontmatter(topic: str, cwd: str = "", tags: list[str] | None = Non
         f"tags: [{tag_str}]",
         "status: complete",
         f'last_updated: "{now.strftime("%Y-%m-%d")}"',
-        f"last_updated_by: autodidact",
+        "last_updated_by: autodidact",
         "---",
         "",
     ]

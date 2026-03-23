@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +17,17 @@ MAX_ROUNDS = 5
 
 # Brownfield detection: files that indicate an existing project
 _PROJECT_INDICATORS = [
-    "package.json", "pyproject.toml", "setup.py", "setup.cfg",
-    "go.mod", "Cargo.toml", "pom.xml", "build.gradle",
-    "Makefile", "CMakeLists.txt", "requirements.txt",
+    "package.json",
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "go.mod",
+    "Cargo.toml",
+    "pom.xml",
+    "build.gradle",
+    "Makefile",
+    "CMakeLists.txt",
+    "requirements.txt",
 ]
 
 _PROJECT_DIRS = ["src", "lib", "app", "pkg", "internal"]
@@ -28,6 +36,7 @@ _PROJECT_DIRS = ["src", "lib", "app", "pkg", "internal"]
 @dataclass
 class DimensionScore:
     """Score for a single ambiguity dimension."""
+
     name: str
     clarity: float  # 0.0 (unclear) to 1.0 (crystal clear)
     weight: float
@@ -37,6 +46,7 @@ class DimensionScore:
 @dataclass
 class AmbiguityScore:
     """Overall ambiguity assessment."""
+
     overall: float  # 0.0 (clear) to 1.0 (ambiguous)
     dimensions: list[DimensionScore]
     is_ready: bool = False
@@ -49,15 +59,17 @@ class AmbiguityScore:
 @dataclass
 class InterviewRound:
     """A single question-answer round."""
+
     round_number: int
     question: str
     answer: str | None = None
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
 class InterviewState:
     """Full interview state, serializable to JSON."""
+
     interview_id: str
     initial_context: str
     rounds: list[InterviewRound] = field(default_factory=list)
@@ -99,12 +111,14 @@ class InterviewState:
             status=data.get("status", "in_progress"),
         )
         for r in data.get("rounds", []):
-            state.rounds.append(InterviewRound(
-                round_number=r["round_number"],
-                question=r["question"],
-                answer=r.get("answer"),
-                timestamp=r.get("timestamp", ""),
-            ))
+            state.rounds.append(
+                InterviewRound(
+                    round_number=r["round_number"],
+                    question=r["question"],
+                    answer=r.get("answer"),
+                    timestamp=r.get("timestamp", ""),
+                )
+            )
         return state
 
 
@@ -120,10 +134,7 @@ def detect_brownfield(project_path: str) -> bool:
         if (path / indicator).exists():
             return True
     # Check for project directories
-    for dirname in _PROJECT_DIRS:
-        if (path / dirname).is_dir():
-            return True
-    return False
+    return any((path / dirname).is_dir() for dirname in _PROJECT_DIRS)
 
 
 def get_scoring_dimensions(is_brownfield: bool) -> list[tuple[str, float]]:

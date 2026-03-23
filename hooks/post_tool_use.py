@@ -38,10 +38,10 @@ def _get_tool_cache() -> dict:
 
 
 def _set_tool_cache(cache: dict) -> None:
-    try:
+    import contextlib
+
+    with contextlib.suppress(OSError):
         _TOOL_CACHE_PATH.write_text(json.dumps(cache))
-    except OSError:
-        pass
 
 
 def _has_tool(name: str) -> bool:
@@ -84,7 +84,9 @@ def _run_quality_check(file_path: str) -> list[str]:
             try:
                 result = subprocess.run(
                     ["ruff", "check", "--select=E,F", str(path)],
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 if result.stdout.strip():
                     issues.append(f"ruff: {result.stdout.strip()}")
@@ -96,7 +98,9 @@ def _run_quality_check(file_path: str) -> list[str]:
             try:
                 result = subprocess.run(
                     ["ruff", "format", "--check", str(path)],
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 if result.returncode != 0:
                     issues.append(f"ruff format: {path.name} needs formatting")
@@ -107,14 +111,15 @@ def _run_quality_check(file_path: str) -> list[str]:
         if _has_tool("mypy"):
             cwd = path.parent
             has_mypy_config = any(
-                (cwd / f).exists()
-                for f in ("mypy.ini", "setup.cfg", ".mypy.ini")
+                (cwd / f).exists() for f in ("mypy.ini", "setup.cfg", ".mypy.ini")
             ) or _pyproject_has_mypy(cwd)
             if has_mypy_config:
                 try:
                     result = subprocess.run(
                         ["mypy", str(path), "--no-error-summary"],
-                        capture_output=True, text=True, timeout=30,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
                     )
                     if result.stdout.strip() and "error:" in result.stdout:
                         issues.append(f"mypy: {result.stdout.strip()}")
@@ -133,7 +138,9 @@ def _run_quality_check(file_path: str) -> list[str]:
                 try:
                     result = subprocess.run(
                         ["npx", "eslint", str(path)],
-                        capture_output=True, text=True, timeout=15,
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
                     )
                     if result.stdout.strip():
                         issues.append(f"eslint: {result.stdout.strip()}")
@@ -183,9 +190,11 @@ def main() -> None:
             known = db.get_by_error_signature(signature)
             if known:
                 db.boost(known["id"])
-                messages.append(
-                    f"KNOWN ERROR [{known['key']}]: {known['value']} (conf: {known['confidence']:.2f})"
+                msg = (
+                    f"KNOWN ERROR [{known['key']}]: {known['value']} "
+                    f"(conf: {known['confidence']:.2f})"
                 )
+                messages.append(msg)
             else:
                 # Record new error
                 db.record(

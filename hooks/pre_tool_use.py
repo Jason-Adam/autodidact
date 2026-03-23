@@ -11,7 +11,6 @@ import json
 import re
 import sys
 
-
 # Protected file patterns (block writes)
 PROTECTED_PATTERNS = [
     r"\.env$",
@@ -23,11 +22,11 @@ PROTECTED_PATTERNS = [
 
 # Dangerous shell commands (block execution)
 DANGEROUS_COMMANDS = [
-    r"rm\s+-rf\s+[/~]",        # rm -rf on root or home
-    r"git\s+push\s+--force",    # force push
-    r"git\s+reset\s+--hard",    # hard reset
-    r"chmod\s+-R\s+777",        # world-writable
-    r">\s*/dev/sd",             # write to block device
+    r"rm\s+-rf\s+[/~]",  # rm -rf on root or home
+    r"git\s+push\s+--force",  # force push
+    r"git\s+reset\s+--hard",  # hard reset
+    r"chmod\s+-R\s+777",  # world-writable
+    r">\s*/dev/sd",  # write to block device
 ]
 
 
@@ -45,10 +44,13 @@ def main() -> None:
         file_path = tool_input.get("file_path", "")
         for pattern in PROTECTED_PATTERNS:
             if re.search(pattern, file_path):
-                json.dump({
-                    "decision": "block",
-                    "reason": f"Protected file: {file_path} matches {pattern}",
-                }, sys.stdout)
+                json.dump(
+                    {
+                        "decision": "block",
+                        "reason": f"Protected file: {file_path} matches {pattern}",
+                    },
+                    sys.stdout,
+                )
                 sys.exit(2)
 
     # Check dangerous commands on Bash
@@ -56,10 +58,13 @@ def main() -> None:
         command = tool_input.get("command", "")
         for pattern in DANGEROUS_COMMANDS:
             if re.search(pattern, command):
-                json.dump({
-                    "decision": "block",
-                    "reason": f"Dangerous command blocked: matches {pattern}",
-                }, sys.stdout)
+                json.dump(
+                    {
+                        "decision": "block",
+                        "reason": f"Dangerous command blocked: matches {pattern}",
+                    },
+                    sys.stdout,
+                )
                 sys.exit(2)
 
     # Allow everything else

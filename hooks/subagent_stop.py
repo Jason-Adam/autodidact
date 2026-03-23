@@ -36,6 +36,7 @@ def main() -> None:
         # Extract and store any learnings from agent output
         # Agents can embed learnings as JSON blocks: <!-- LEARNING: {...} -->
         import re
+
         learning_pattern = re.compile(r"<!--\s*LEARNING:\s*({.*?})\s*-->", re.DOTALL)
         for match in learning_pattern.finditer(agent_output):
             try:

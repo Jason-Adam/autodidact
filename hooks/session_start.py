@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Add repo root to path for src imports
@@ -32,7 +32,7 @@ def main() -> None:
 
         # Daily prune: check if we've pruned today
         prune_marker = db.db_path.parent / ".last_prune"
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         should_prune = True
         if prune_marker.exists():
             should_prune = prune_marker.read_text().strip() != today
@@ -46,8 +46,11 @@ def main() -> None:
         learnings = db.get_top_learnings(limit=10, project_path=cwd)
         if learnings:
             lines = ["AUTODIDACT LEARNINGS (top confidence):"]
-            for l in learnings[:10]:
-                lines.append(f"  [{l['topic']}/{l['key']}] {l['value']} (conf: {l['confidence']:.2f})")
+            for entry in learnings[:10]:
+                lines.append(
+                    f"  [{entry['topic']}/{entry['key']}] "
+                    f"{entry['value']} (conf: {entry['confidence']:.2f})"
+                )
             messages.append("\n".join(lines))
 
         # Check for active campaigns
@@ -68,7 +71,7 @@ def main() -> None:
             try:
                 state = json.loads(compact_state_path.read_text())
                 if state:
-                    messages.append(f"Restored session state from previous compaction.")
+                    messages.append("Restored session state from previous compaction.")
                     compact_state_path.unlink()
             except (json.JSONDecodeError, KeyError):
                 pass
