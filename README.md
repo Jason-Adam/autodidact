@@ -27,18 +27,19 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
         ├── /fleet ─── parallel worktree waves
         ├── /review ── code review with quality scoring
         ├── /learn ─── teach autodidact something
-        └── /handoff ─ session transfer document
+        ├── /handoff ─ session transfer document
+        └── /publish ─ auto-publish to thoughts repo
 ```
 
 ### Components
 
 | Layer | Count | Description |
 |-------|-------|-------------|
-| **Core library** | 9 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync |
+| **Core library** | 10 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents |
 | **Hooks** | 8 | Python scripts on Claude Code lifecycle events (session start, tool use, compaction, stop) |
-| **Skills** | 8 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
+| **Skills** | 9 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
 | **Agents** | 10 | Specialized personas: interviewer, fleet-worker, quality-scorer, 6 research agents, python-engineer |
-| **Commands** | 10 | User-facing slash commands that invoke skills |
+| **Commands** | 11 | User-facing slash commands that invoke skills |
 
 ### Learning database
 
@@ -52,6 +53,18 @@ Record (hooks capture errors/patterns)
   → Graduate (confidence ≥ 0.9 + 5 observations → promoted to CLAUDE.md)
   → Prune (confidence < 0.1 + 90 days stale → deleted)
 ```
+
+### Document persistence
+
+Research findings and implementation plans are saved as structured markdown in the current project:
+
+```
+.planning/
+├── research/    # Research docs with YAML frontmatter (date, git_commit, topic, tags)
+└── plans/       # Plan docs (flat markdown, no frontmatter)
+```
+
+If `AUTODIDACT_THOUGHTS_REPO` is set, documents are also auto-published to a GitHub thoughts repo via `/publish` (worktree → PR → squash merge). Research docs are deleted locally after publish; plans are kept for implementation tracking.
 
 ## Installation
 
@@ -75,6 +88,16 @@ python3 install.py --uninstall
 ```
 
 The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` manually to remove it.
+
+### Optional: thoughts repo publishing
+
+To auto-publish research and plans to a GitHub repository:
+
+```bash
+export AUTODIDACT_THOUGHTS_REPO=your-org/your-thoughts-repo
+```
+
+The repo will be cloned automatically on first publish. Requires the `gh` CLI to be authenticated.
 
 ## Usage
 
@@ -164,6 +187,14 @@ Reviews changed files with quality scoring across correctness, security, complet
 ```
 
 Creates a compact (<150 words) transfer document capturing what was done, decisions made, and next steps.
+
+### `/publish` — publish to thoughts repo
+
+```
+/publish .planning/research/2026-03-24-auth-flow.md
+```
+
+Publishes a research or plan document to the GitHub thoughts repo configured via `AUTODIDACT_THOUGHTS_REPO`. Creates a worktree, commits, opens a PR, squash merges, and cleans up. Research docs are deleted locally after publish; plans are kept.
 
 ## Tests
 

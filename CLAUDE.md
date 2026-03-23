@@ -6,7 +6,7 @@ Autodidact is a self-teaching AI harness for Claude Code. It is NOT a traditiona
 
 ## Architecture
 
-- **src/**: Python stdlib library (db, router, confidence, interview, worktree, circuit_breaker, handoff, sync)
+- **src/**: Python stdlib library (db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents)
 - **hooks/**: 8 Python hooks that fire on Claude Code lifecycle events
 - **skills/**: 10 markdown skill definitions (5-section format)
 - **agents/**: 10 agent personas (research, implementation, orchestration)
@@ -21,6 +21,8 @@ Autodidact is a self-teaching AI harness for Claude Code. It is NOT a traditiona
 - **Cost-ascending router** — /do resolves at cheapest tier possible (pattern → state → keyword → LLM)
 - **5-section skills** — Identity, Orientation, Protocol, Quality Gates, Exit Protocol
 - **HANDOFF blocks** — <150 words, 3-5 bullets between skills/agents
+- **Document persistence** — research and plan outputs saved to `.planning/{research|plans}/`, auto-published to thoughts repo if `AUTODIDACT_THOUGHTS_REPO` is set
+- **Research frontmatter** — research docs get YAML frontmatter (date, git_commit, branch, repository, topic, tags, status). Plans do NOT get frontmatter.
 
 ## Testing
 

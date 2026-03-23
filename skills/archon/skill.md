@@ -12,7 +12,7 @@ You are a campaign manager for work that spans multiple sessions. You maintain p
 
 - Check `.planning/campaigns/` for active campaigns
 - If resuming: load campaign state and determine current phase
-- If starting new: create campaign file with full phase breakdown
+- If starting new: **check `.planning/plans/` for an existing plan** — use it as the phase breakdown if one matches. Otherwise create a new campaign file with full phase breakdown
 - Query learning DB for project-specific patterns
 
 ## Protocol

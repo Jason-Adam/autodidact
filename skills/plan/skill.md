@@ -53,6 +53,16 @@ When entering this phase:
 3. Each agent gets ONE focused question and returns structured findings
 4. Collate findings — note key files, patterns, and conventions
 5. Record discoveries in the learning DB
+6. **Persist research document**: Save findings to `.planning/research/` using `src/documents.py`:
+   ```bash
+   python3 -c "
+   import sys; sys.path.insert(0, 'REPO_PATH')
+   from src.documents import save_document
+   path = save_document(RESEARCH_CONTENT, 'research', 'TOPIC', 'CWD')
+   print(f'Saved: {path}')
+   "
+   ```
+7. **Auto-publish** (if `AUTODIDACT_THOUGHTS_REPO` is configured): invoke `/publish` with the saved file path
 
 ### Phase 3: Design (always runs)
 
@@ -85,10 +95,18 @@ When entering this phase:
 
 3. **Iterate** based on feedback — update the plan, re-present
 
-4. **On approval**, save the plan to `.planning/plans/` for persistence:
+4. **On approval**, persist the plan document:
+   ```bash
+   python3 -c "
+   import sys; sys.path.insert(0, 'REPO_PATH')
+   from src.documents import save_document
+   path = save_document(PLAN_CONTENT, 'plans', 'TOPIC', 'CWD')
+   print(f'Saved: {path}')
+   "
    ```
-   .planning/plans/YYYY-MM-DD-{slug}.md
-   ```
+   Plan is saved to `.planning/plans/YYYY-MM-DD-{slug}.md`
+
+5. **Auto-publish** (if `AUTODIDACT_THOUGHTS_REPO` is configured): invoke `/publish` with the saved file path. The local copy is kept for marshal/archon/fleet to read.
 
 ## Quality Gates
 

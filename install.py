@@ -26,7 +26,7 @@ INSTALLED_MARKER = AUTODIDACT_DIR / ".installed"
 # Symlink mappings: (source_in_repo, target_in_claude, prefix)
 SKILL_DIRS = [
     "do", "marshal", "archon", "fleet",
-    "learn", "plan", "review", "handoff",
+    "learn", "plan", "review", "handoff", "publish",
 ]
 AGENT_FILES = [
     "interviewer.md", "fleet-worker.md", "quality-scorer.md",
@@ -37,7 +37,7 @@ AGENT_FILES = [
 COMMAND_FILES = [
     "do.md", "marshal.md", "archon.md", "fleet.md",
     "learn.md", "learn_status.md", "forget.md",
-    "plan.md", "review.md", "handoff.md",
+    "plan.md", "review.md", "handoff.md", "publish.md",
 ]
 
 HOOK_EVENTS = {

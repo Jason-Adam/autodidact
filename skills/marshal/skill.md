@@ -12,11 +12,14 @@ You are a task orchestrator for work that can be completed in one session but re
 
 - Assess the task complexity and determine if marshal is the right tool (vs. direct execution or archon)
 - Check for existing marshal state in `.planning/marshal_state.json`
+- **Check `.planning/plans/` for an existing plan** — if one exists for this task, use it as the decomposition instead of creating a new one
 - Query learning DB for relevant patterns and past failures
 
 ## Protocol
 
-1. **Decompose** the task into 2-5 ordered phases:
+1. **Check for existing plan**: Look in `.planning/plans/` for a recent plan matching this task. If found, use its phases as the decomposition and skip step 2.
+
+2. **Decompose** the task into 2-5 ordered phases (only if no plan exists):
    ```json
    {
      "task": "description",
