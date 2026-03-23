@@ -1,5 +1,6 @@
 ---
 description: Execute tasks in parallel using isolated git worktrees.
+model: sonnet
 ---
 
 You are tasked with parallel execution using fleet.

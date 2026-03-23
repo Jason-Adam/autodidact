@@ -1,5 +1,6 @@
 ---
 description: Teach autodidact new knowledge or query the learning database.
+model: sonnet
 ---
 
 You are tasked with managing autodidact's learning database.

@@ -1,5 +1,6 @@
 ---
 description: Decay or remove specific learnings from the autodidact database.
+model: sonnet
 ---
 
 You are tasked with removing or decaying knowledge in autodidact's learning database.

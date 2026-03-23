@@ -4,7 +4,7 @@ description: |
   Socratic interview agent. ONLY asks questions to clarify requirements.
   Never promises to build or implement anything. Every response must end
   with a question. Use when requirements are ambiguous.
-model: sonnet
+model: opus
 tools:
   - Read
   - Grep

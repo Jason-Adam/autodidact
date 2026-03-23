@@ -1,5 +1,6 @@
 ---
 description: Orchestrate a multi-step task within a single session.
+model: opus
 ---
 
 You are tasked with orchestrating a multi-step task.

@@ -1,5 +1,6 @@
 ---
 description: Code review with quality scoring fed to the learning database.
+model: opus
 ---
 
 You are tasked with conducting a code review.

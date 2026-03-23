@@ -1,5 +1,6 @@
 ---
 description: Create a session transfer document for continuing work in another session.
+model: sonnet
 ---
 
 You are tasked with creating a session handoff document.

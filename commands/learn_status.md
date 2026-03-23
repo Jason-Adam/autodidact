@@ -1,5 +1,6 @@
 ---
 description: Show confidence stats and knowledge inventory from the autodidact learning database.
+model: sonnet
 ---
 
 You are tasked with showing the current state of autodidact's learning database.

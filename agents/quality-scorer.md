@@ -4,7 +4,7 @@ description: |
   Evaluates output against a 100-point rubric across 4 dimensions:
   correctness (40), security (25), completeness (20), style (15).
   Returns a structured score that feeds into learning confidence.
-model: sonnet
+model: opus
 tools:
   - Read
   - Grep

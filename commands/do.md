@@ -1,5 +1,6 @@
 ---
 description: Universal entry point — classifies intent and routes to the right autodidact skill.
+model: opus
 ---
 
 You are tasked with routing the user's request through the autodidact system.

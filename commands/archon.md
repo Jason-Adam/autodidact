@@ -1,5 +1,6 @@
 ---
 description: Manage multi-session campaigns that persist across Claude Code invocations.
+model: opus
 ---
 
 You are tasked with managing a multi-session campaign.
