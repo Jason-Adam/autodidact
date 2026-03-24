@@ -21,12 +21,25 @@ You are the Loop Launcher. You validate preconditions and start the autodidact a
 ### Phase 1: Detect Subcommand
 
 Parse user input:
-- `/loop` or `/loop run` — start loop in run mode
+- `/loop run` — start loop in run mode
 - `/loop campaign` — start loop in campaign mode
 - `/loop fleet` — start loop in fleet mode
+- `/loop` (no mode) — auto-select mode using plan-aware analysis (see below)
 - `/loop status` — show loop status (go to Phase 4)
 - `/loop stop` — stop the loop (go to Phase 5)
 - `--max N` — set max iterations (default 50)
+
+**Auto-select mode** (when no explicit mode given):
+1. Run `select_loop_mode()` from `src/router.py`:
+   ```bash
+   python3 -c "
+   import sys; sys.path.insert(0, 'REPO_PATH')
+   from src.router import select_loop_mode
+   print(select_loop_mode('CWD'))
+   "
+   ```
+2. Use the returned mode (run/campaign/fleet)
+3. Report the auto-selected mode to the user before launching: "Auto-selected mode: {mode} (reason: {reason})"
 
 ### Phase 2: Validate Preconditions
 

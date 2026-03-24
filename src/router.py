@@ -40,6 +40,8 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?forget\b", "forget"),
     (r"^/?(do\s+)?learn.?status\b", "learn_status"),
     (r"^/?(do\s+)?experiment\b", "experiment"),
+    (r"^/do\s+loop\b", "loop"),  # requires /do prefix to avoid matching "loop through..."
+    (r"^/?loop$", "loop"),  # bare "loop" with no arguments
 ]
 
 
@@ -323,6 +325,34 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
 
 
 # ── Public API ──────────────────────────────────────────────────────────
+
+_PLAN_SKILL_TO_LOOP_MODE: dict[str, str] = {
+    "direct": "run",
+    "run": "run",
+    "fleet": "fleet",
+    "campaign": "campaign",
+}
+
+
+def select_loop_mode(cwd: str) -> str:
+    """Pick loop mode (run/campaign/fleet) based on workspace state.
+
+    Priority:
+    1. Active state (campaign/fleet/run) from Tier 1
+    2. Plan structure analysis from Tier 2.5
+    3. Default: run
+    """
+    # Active state takes priority
+    result = _tier1_active_state(cwd)
+    if result and result.skill in ("campaign", "fleet", "run"):
+        return result.skill
+
+    # Plan structure analysis
+    result = _tier25_plan_analysis(cwd)
+    if result:
+        return _PLAN_SKILL_TO_LOOP_MODE.get(result.skill, "run")
+
+    return "run"
 
 
 def classify(prompt: str, cwd: str = "") -> RouterResult:

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.router import classify
+from src.router import classify, select_loop_mode
 
 
 class TestTier0PatternMatch(unittest.TestCase):
@@ -75,6 +75,26 @@ class TestTier0PatternMatch(unittest.TestCase):
         r = classify("/do polish the code")
         self.assertEqual(r.skill, "polish")
         self.assertEqual(r.tier, 0)
+
+    def test_loop_routes_to_loop(self) -> None:
+        r = classify("/do loop")
+        self.assertEqual(r.skill, "loop")
+        self.assertEqual(r.tier, 0)
+
+    def test_bare_loop(self) -> None:
+        r = classify("loop")
+        self.assertEqual(r.skill, "loop")
+        self.assertEqual(r.tier, 0)
+
+    def test_loop_with_mode(self) -> None:
+        r = classify("/do loop fleet")
+        self.assertEqual(r.skill, "loop")
+        self.assertEqual(r.tier, 0)
+
+    def test_loop_does_not_match_natural_language(self) -> None:
+        """'loop through the array' should NOT route to /loop skill."""
+        r = classify("loop through the array")
+        self.assertNotEqual(r.skill, "loop")
 
     def test_no_match(self) -> None:
         r = classify("build the widget")
@@ -241,6 +261,75 @@ class TestTier3Fallthrough(unittest.TestCase):
         self.assertEqual(r.skill, "classify")
         self.assertEqual(r.tier, 3)
         self.assertAlmostEqual(r.confidence, 0.0)
+
+
+class TestSelectLoopMode(unittest.TestCase):
+    """Tests for plan-aware loop mode auto-selection."""
+
+    def _write_plan(self, tmpdir: str, content: str) -> None:
+        plans = Path(tmpdir) / ".planning" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+        (plans / "2026-01-01-test.md").write_text(content)
+
+    def test_active_campaign_returns_campaign(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            campaigns = Path(tmpdir) / ".planning" / "campaigns"
+            campaigns.mkdir(parents=True)
+            (campaigns / "test.json").write_text(
+                json.dumps({"name": "test", "status": "in_progress"})
+            )
+            self.assertEqual(select_loop_mode(tmpdir), "campaign")
+
+    def test_plan_with_independent_phases_returns_fleet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_plan(
+                tmpdir,
+                (
+                    "## Plan\n"
+                    "### Phase 1: Auth\n- [ ] Edit `src/auth.py`\n"
+                    "### Phase 2: Billing\n- [ ] Edit `src/billing.py`\n"
+                    "### Phase 3: Notify\n- [ ] Edit `src/notify.py`\n"
+                ),
+            )
+            self.assertEqual(select_loop_mode(tmpdir), "fleet")
+
+    def test_plan_with_sequential_phases_returns_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_plan(
+                tmpdir,
+                (
+                    "## Plan\n"
+                    "### Phase 1: Models\n- [ ] Edit `src/models.py`\n"
+                    "### Phase 2: Routes\n- [ ] Edit `src/models.py`\n"
+                    "- [ ] Edit `src/routes.py`\n"
+                ),
+            )
+            self.assertEqual(select_loop_mode(tmpdir), "run")
+
+    def test_single_phase_returns_run(self) -> None:
+        """Single-phase plan maps 'direct' to 'run' for loop mode."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_plan(
+                tmpdir,
+                "## Plan\n### Phase 1: Fix\n- [ ] Edit `src/router.py`\n",
+            )
+            self.assertEqual(select_loop_mode(tmpdir), "run")
+
+    def test_large_plan_returns_campaign(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            phases = ""
+            for i in range(1, 8):
+                phases += (
+                    f"### Phase {i}: Step {i}\n"
+                    f"- [ ] Edit `src/file{i}.py`\n"
+                    f"- [ ] Edit `src/shared.py`\n"
+                )
+            self._write_plan(tmpdir, f"## Plan\n{phases}")
+            self.assertEqual(select_loop_mode(tmpdir), "campaign")
+
+    def test_no_plan_defaults_to_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.assertEqual(select_loop_mode(tmpdir), "run")
 
 
 if __name__ == "__main__":

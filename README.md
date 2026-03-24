@@ -9,8 +9,8 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 - **Learns from errors** — captures error patterns, remembers fixes, and injects relevant knowledge into future sessions via FTS5 full-text search
 - **Plans before it builds** — a unified `/plan` pipeline that clarifies requirements (Socratic interview), researches the codebase (parallel agents), and produces implementation plans
 - **Orchestrates complex work** — three tiers of orchestration: `/run` (single-session), `/campaign` (multi-session), `/fleet` (parallel git worktrees)
-- **Experiments autonomously** — `/experiment` runs a metric-driven THINK → TEST → REFLECT loop that hypothesizes changes, measures impact, keeps improvements, and reverts regressions — all on a safety branch
-- **Runs unattended** — `/loop` drives any execution mode autonomously with intelligent exit detection, progress tracking, and rate limit handling
+- **Experiments autonomously** — `/experiment` runs a metric-driven THINK → TEST → REFLECT loop that hypothesizes changes, measures impact, keeps improvements, and reverts regressions
+- **Runs unattended** — `/loop` drives any execution mode autonomously with intelligent exit detection, progress tracking, and [auto-selects the right orchestrator](docs/loop.md#auto-select-mode) based on plan structure
 - **Routes cheaply** — a cost-ascending `/do` router resolves most requests with zero LLM tokens (pattern match → active state → keyword heuristic) before falling back to classification
 - **Checks quality per-edit** — hooks run ruff/mypy on Python files and eslint on JavaScript files after every edit, feeding results back into the learning DB
 
@@ -34,26 +34,9 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
          │  /loop  (autonomous driver)                          │
          │  Wraps /run, /campaign, or /fleet in an unattended   │
          │  loop with exit detection + circuit breaker          │
+         │  Auto-selects mode from plan structure when omitted  │
          └──────────────────────────────────────────────────────┘
 ```
-
-### How the loop works
-
-```
-/plan (interactive, you're present)
-  │
-  ▼  plan approved
-/loop run|campaign|fleet (autonomous, you walk away)
-  │
-  ├── invoke claude CLI ──► hooks fire automatically inside
-  ├── analyze response ──► question detection, status block parsing
-  ├── detect progress ───► git diff, commits, file changes
-  ├── update trackers ──► circuit breaker (3-state) + exit tracker
-  ├── check exit gates ─► 6 priority levels (permission denied → plan complete)
-  └── iterate or stop
-```
-
-The loop **wraps** existing skills — it doesn't reimplement them. Each iteration invokes Claude with the appropriate skill prompt, and the skill handles the actual work.
 
 ### Components
 
@@ -64,36 +47,6 @@ The loop **wraps** existing skills — it doesn't reimplement them. Each iterati
 | **Skills** | 11 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
 | **Agents** | 10 | Specialized personas: interviewer, fleet-worker, quality-scorer, 6 research agents, python-engineer |
 | **Commands** | 13 | User-facing slash commands that invoke skills |
-
-### Learning database
-
-SQLite with FTS5 full-text search. Knowledge flows through a lifecycle:
-
-```
-Record (hooks capture errors/patterns)
-  → Inject (FTS5 query on every user prompt)
-  → Feedback (success: +0.15 confidence, failure: -0.10)
-  → Decay (time-based: 0.01/day, floor 0.1)
-  → Graduate (confidence ≥ 0.9 + 5 observations → promoted to CLAUDE.md)
-  → Prune (confidence < 0.1 + 90 days stale → deleted)
-```
-
-### Document persistence
-
-```
-.planning/
-├── research/         # Research docs with YAML frontmatter
-├── plans/            # Plan docs (flat markdown)
-├── campaigns/        # Campaign state JSON
-├── experiments/      # Experiment state (state.json + log.tsv per session)
-├── fleet/            # Fleet state (active.json)
-├── loop_signals.json # Exit tracker state
-├── loop_cb_state.json# Circuit breaker state
-├── loop.pid          # Running loop PID
-└── loop.log          # Loop output
-```
-
-If `AUTODIDACT_THOUGHTS_REPO` is set, documents are also auto-published to a GitHub thoughts repo via `/publish`.
 
 ## Prerequisites
 
@@ -132,115 +85,28 @@ python3 install.py --uninstall
 
 The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` manually to remove it.
 
-### Optional: thoughts repo publishing
-
-```bash
-export AUTODIDACT_THOUGHTS_REPO=your-org/your-thoughts-repo
-```
-
-### Worktree compatibility
-
-Autodidact works with `claude --worktree`. Learnings are shared across all worktrees of the same repo (resolved to the main repo root). `.planning/` state stays isolated per worktree, matching the one-worktree-per-task workflow.
-
 ## Usage
 
-### `/do` — universal entry point
+| Command | Purpose | Docs |
+|---------|---------|------|
+| `/do` | Universal router — resolves most requests at zero LLM cost | — |
+| `/plan` | Clarify → Research → Design pipeline | [commands.md](docs/commands.md#plan--clarify-research-design) |
+| `/run` | Single-session sequential orchestration | [commands.md](docs/commands.md#run--single-session-orchestration) |
+| `/campaign` | Multi-session persistent orchestration | [commands.md](docs/commands.md#campaign--multi-session-campaigns) |
+| `/fleet` | Parallel worktree execution | [commands.md](docs/commands.md#fleet--parallel-worktree-execution) |
+| `/experiment` | Metric-driven autonomous optimization | [commands.md](docs/commands.md#experiment--metric-driven-optimization) |
+| `/loop` | Autonomous unattended execution (auto-selects mode) | [loop.md](docs/loop.md) |
+| `/learn` | Teach the system facts for future injection | [commands.md](docs/commands.md#learn--teach-the-system) |
+| `/review` | Code review with quality scoring | [commands.md](docs/commands.md#review-handoff-publish) |
+| `/handoff` | Compact session transfer document | [commands.md](docs/commands.md#review-handoff-publish) |
+| `/publish` | Publish docs to thoughts repo via PR | [commands.md](docs/commands.md#review-handoff-publish) |
 
-```
-/do add pagination to the API
-```
+## Deep dives
 
-Routes through the cost-ascending classifier. Most requests resolve with zero LLM tokens.
-
-### `/plan` — clarify, research, design
-
-```
-/plan add rate limiting to the API
-```
-
-Automatically decides which phases to run: Socratic **Clarify** if requirements are vague, parallel **Research** agents if the codebase is unfamiliar, then **Design** with phases and success criteria.
-
-### `/run` — single-session orchestration
-
-```
-/run refactor the database layer to use connection pooling
-```
-
-Decomposes into phases, executes sequentially, verifies each. Circuit breaker halts after 3 consecutive failures.
-
-### `/campaign` — multi-session campaigns
-
-```
-/campaign migrate from REST to GraphQL
-```
-
-Persists state in `.planning/campaigns/`. The session-start hook detects active campaigns and prompts to resume.
-
-### `/fleet` — parallel worktree execution
-
-```
-/fleet add type hints to src/db.py, src/router.py, and src/interview.py
-```
-
-Creates isolated git worktrees, dispatches workers in waves, compresses discovery briefs between waves, and merges results. Recovers interrupted workers automatically on resume.
-
-### `/experiment` — metric-driven optimization
-
-```
-/experiment optimize the hot loop in src/parser.py for throughput
-```
-
-Runs an autonomous THINK → TEST → REFLECT loop. You provide target files, a metric command (any shell command that outputs a number), and an optimization direction (minimize/maximize). Claude hypothesizes changes, measures their impact, keeps improvements, and reverts regressions — all on a `experiment/safety-{id}` git branch. Convergence detection (plateau, oscillation, repeated failures) stops the loop when progress stalls. State persists in `.planning/experiments/` so interrupted sessions can resume.
-
-### `/loop` — autonomous execution
-
-Run any execution mode unattended:
-
-```
-/loop run          # loop against the latest plan
-/loop campaign     # loop continuing the active campaign
-/loop fleet        # loop with parallel worktree execution
-/loop --max 20     # limit iterations
-/loop status       # check loop progress
-/loop stop         # graceful stop after current iteration
-```
-
-From the terminal directly (foreground mode):
-
-```bash
-uv run --project ~/code/autodidact python3 -m src.loop run --cwd .
-```
-
-**Exit detection** (checked in priority order):
-1. Permission denied → immediate stop
-2. Test saturation → 3+ test-only loops
-3. Repeated done signals → 2+ explicit completions
-4. Safety backstop → 5+ completion indicators
-5. Dual-condition gate → 2+ indicators AND Claude's EXIT_SIGNAL
-6. Fitness gate → all `### Fitness` expressions in the plan pass
-7. Plan complete → all checkboxes checked
-
-**Circuit breaker** (3-state: closed → half_open → open):
-- 3 iterations with no git progress → opens
-- 5 same-error iterations → opens
-- 2 permission denials → opens
-- Auto-recovers after 30-minute cooldown
-
-### `/learn` — teach the system
-
-```
-/learn pytest fixtures in this project always go in conftest.py
-```
-
-User-taught knowledge starts at 0.7 confidence and is injected into future sessions when relevant.
-
-### `/review`, `/handoff`, `/publish`
-
-```
-/review              # code review with quality scoring
-/handoff             # compact session transfer document (<150 words)
-/publish <file>      # publish to thoughts repo via PR
-```
+- [Command reference](docs/commands.md) — detailed usage and examples for every command
+- [Loop and autonomous execution](docs/loop.md) — exit detection, circuit breaker, auto-select mode
+- [Learning database](docs/learning-db.md) — knowledge lifecycle, confidence math, FTS5 queries
+- [Planning and persistence](docs/planning.md) — `.planning/` directory structure, thoughts repo publishing
 
 ## Tests
 
@@ -248,7 +114,7 @@ User-taught knowledge starts at 0.7 confidence and is injected into future sessi
 uv run python3 -m pytest tests/ -v
 ```
 
-227 tests covering the learning DB, confidence math, router classification, interview scoring, circuit breaker (2-state and 3-state), response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, experiment state management, convergence detection, and fitness expression evaluation.
+227 tests covering the learning DB, confidence math, router classification, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, experiment state management, convergence detection, and fitness expression evaluation.
 
 ## Design principles
 
@@ -261,4 +127,4 @@ uv run python3 -m pytest tests/ -v
 
 ## License
 
-MIT
+[MIT](LICENSE)
