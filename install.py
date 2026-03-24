@@ -32,7 +32,7 @@ SKILL_DIRS = [
     "fleet",
     "learn",
     "plan",
-    "review",
+    "polish",
     "handoff",
     "sync-thoughts",
     "loop",
