@@ -49,6 +49,7 @@ def main() -> None:
         if learnings:
             lines = ["AUTODIDACT LEARNINGS (top confidence):"]
             for entry in learnings[:10]:
+                db.increment_access(entry["id"])
                 lines.append(
                     f"  [{entry['topic']}/{entry['key']}] "
                     f"{entry['value']} (conf: {entry['confidence']:.2f})"

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.circuit_breaker import BreakerPhase, CircuitBreaker
+from src.db import LearningDB
 from src.documents import get_latest_plan
 from src.exit_tracker import ExitTracker
 from src.git_utils import resolve_main_repo
@@ -96,6 +97,7 @@ class LoopRunner:
                     break
                 time.sleep(5)  # Brief pause between iterations
         finally:
+            self._record_run_summary()
             self._cleanup()
         return self._build_result()
 
@@ -235,6 +237,26 @@ class LoopRunner:
     def _cleanup(self) -> None:
         self.pid_path.unlink(missing_ok=True)
         self.stop_path.unlink(missing_ok=True)
+
+    def _record_run_summary(self) -> None:
+        """Persist a structured summary of this loop run to the learning DB."""
+        summary = {
+            "iterations": self._iteration_count,
+            "exit_reason": self.exit_tracker.evaluate(self._last_analysis).reason
+            or "max_iterations",
+            "final_phase": self.circuit_breaker.current_phase.value,
+            "mode": self.config.mode,
+        }
+        try:
+            db = LearningDB()
+            db.record_run_summary(
+                summary,
+                session_id=self.session_id or "",
+                project_path=self.config.main_repo,
+            )
+            db.close()
+        except Exception:
+            pass  # graceful degradation, matching hook pattern
 
     def _build_result(self) -> LoopResult:
         decision = self.exit_tracker.evaluate(self._last_analysis)

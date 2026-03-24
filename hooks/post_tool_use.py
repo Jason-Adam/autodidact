@@ -210,6 +210,7 @@ def main() -> None:
                     session_id=session_id,
                     error_signature=signature,
                     error_type=tool_name,
+                    outcome="failure",
                 )
 
         # Per-edit quality checks

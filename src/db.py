@@ -14,7 +14,7 @@ from typing import Any
 
 DEFAULT_DB_PATH = Path.home() / ".claude" / "autodidact" / "learning.db"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS learnings (
@@ -96,6 +96,11 @@ class LearningDB:
             self.conn.executescript(_SCHEMA_V1)
             self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self.conn.commit()
+        if version < 2:
+            self.conn.execute("ALTER TABLE learnings ADD COLUMN access_count INTEGER DEFAULT 0")
+            self.conn.execute("ALTER TABLE learnings ADD COLUMN outcome TEXT DEFAULT ''")
+            self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            self.conn.commit()
 
     def close(self) -> None:
         self.conn.close()
@@ -124,6 +129,7 @@ class LearningDB:
         error_type: str = "",
         fix_type: str = "",
         fix_action: str = "",
+        outcome: str = "",
     ) -> int:
         """Record a new learning or update an existing one (upsert on topic+key)."""
         now = _now_iso()
@@ -133,8 +139,8 @@ class LearningDB:
                 topic, key, value, category, confidence, tags, source,
                 project_path, session_id, observation_count,
                 first_seen, last_seen,
-                error_signature, error_type, fix_type, fix_action
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+                error_signature, error_type, fix_type, fix_action, outcome
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(topic, key) DO UPDATE SET
                 value = excluded.value,
                 confidence = MAX(confidence, excluded.confidence),
@@ -147,7 +153,8 @@ class LearningDB:
                 fix_type = CASE WHEN excluded.fix_type != ''
                     THEN excluded.fix_type ELSE fix_type END,
                 fix_action = CASE WHEN excluded.fix_action != ''
-                    THEN excluded.fix_action ELSE fix_action END
+                    THEN excluded.fix_action ELSE fix_action END,
+                outcome = CASE WHEN excluded.outcome != '' THEN excluded.outcome ELSE outcome END
             """,
             (
                 topic,
@@ -165,6 +172,7 @@ class LearningDB:
                 error_type,
                 fix_type,
                 fix_action,
+                outcome,
             ),
         )
         self.conn.commit()
@@ -197,12 +205,20 @@ class LearningDB:
             WHERE learnings_fts MATCH ?
               AND l.confidence >= ?
               AND l.graduated_to = ''
-            ORDER BY rank
+            ORDER BY (rank - (l.access_count * 0.1))
             LIMIT ?
             """,
             (fts_query, min_confidence, limit),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def increment_access(self, learning_id: int) -> None:
+        """Increment access counter when a learning is injected into a session."""
+        self.conn.execute(
+            "UPDATE learnings SET access_count = access_count + 1, last_seen = ? WHERE id = ?",
+            (_now_iso(), learning_id),
+        )
+        self.conn.commit()
 
     def get_by_id(self, learning_id: int) -> dict[str, Any] | None:
         row = self.conn.execute("SELECT * FROM learnings WHERE id = ?", (learning_id,)).fetchone()
@@ -383,3 +399,26 @@ class LearningDB:
             """
         ).fetchone()
         return dict(row) if row else {}
+
+    def record_run_summary(
+        self, run_result: dict[str, Any], *, session_id: str = "", project_path: str = ""
+    ) -> int:
+        """Record a loop run summary. Thin wrapper around record()."""
+        return self.record(
+            topic="loop_run",
+            key=f"run_{_now_iso().replace(':', '').replace('-', '').replace('+', '')}",
+            value=json.dumps(run_result),
+            category="run_summary",
+            confidence=0.5,
+            source="loop_driver",
+            session_id=session_id,
+            project_path=project_path,
+        )
+
+    def get_by_outcome(self, outcome: str, *, limit: int = 10) -> list[dict[str, Any]]:
+        """Query learnings by outcome category."""
+        rows = self.conn.execute(
+            "SELECT * FROM learnings WHERE outcome = ? ORDER BY confidence DESC LIMIT ?",
+            (outcome, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]

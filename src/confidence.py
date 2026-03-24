@@ -62,3 +62,13 @@ def initial_confidence(source: str) -> float:
         "subagent_discovery": 0.4,
         "routing_gap": 0.3,
     }.get(source, 0.5)
+
+
+def initial_confidence_for_outcome(outcome: str) -> float:
+    """Return starting confidence based on outcome type."""
+    return {
+        "interesting": 0.4,
+        "thought": 0.35,
+        "success": 0.6,
+        "failure": 0.5,
+    }.get(outcome, 0.5)

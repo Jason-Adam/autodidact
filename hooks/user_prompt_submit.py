@@ -41,6 +41,7 @@ def main() -> None:
         if learnings:
             lines = ["RELEVANT LEARNINGS:"]
             for entry in learnings:
+                db.increment_access(entry["id"])
                 lines.append(
                     f"  [{entry['topic']}/{entry['key']}] "
                     f"{entry['value']} (conf: {entry['confidence']:.2f})"
