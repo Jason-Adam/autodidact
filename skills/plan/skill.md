@@ -124,3 +124,14 @@ Once approved, suggest the next step:
 - Parallelizable plans → use `/fleet`
 
 Record planning learnings in the DB (what patterns were discovered, what questions helped).
+
+Before ending your response, emit a status block for autonomous loop integration:
+```
+---AUTODIDACT_STATUS---
+STATUS: IN_PROGRESS | COMPLETE | BLOCKED
+EXIT_SIGNAL: true only if the plan has been approved by the user
+WORK_TYPE: documentation
+FILES_MODIFIED: <count of files created>
+SUMMARY: <one sentence describing what you did>
+---END_STATUS---
+```

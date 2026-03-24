@@ -16,6 +16,7 @@ _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
+from src.git_utils import resolve_main_repo
 
 
 def main() -> None:
@@ -26,6 +27,7 @@ def main() -> None:
 
     messages: list[str] = []
     cwd = hook_input.get("cwd", "")
+    project_path = resolve_main_repo(cwd) if cwd else ""
 
     try:
         db = LearningDB()
@@ -43,7 +45,7 @@ def main() -> None:
                 messages.append(f"Pruned {deleted} stale learning(s).")
 
         # Inject top learnings for current project
-        learnings = db.get_top_learnings(limit=10, project_path=cwd)
+        learnings = db.get_top_learnings(limit=10, project_path=project_path)
         if learnings:
             lines = ["AUTODIDACT LEARNINGS (top confidence):"]
             for entry in learnings[:10]:

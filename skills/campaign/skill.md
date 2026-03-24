@@ -76,3 +76,14 @@ HANDOFF: Campaign Session End
 ```
 
 Save campaign state. The session_start hook will detect it on next invocation.
+
+Before ending your response, emit a status block for autonomous loop integration:
+```
+---AUTODIDACT_STATUS---
+STATUS: IN_PROGRESS | COMPLETE | BLOCKED
+EXIT_SIGNAL: true only if ALL campaign phases complete
+WORK_TYPE: implementation | testing | refactoring | documentation
+FILES_MODIFIED: <count of files you edited this response>
+SUMMARY: <one sentence describing what you did>
+---END_STATUS---
+```

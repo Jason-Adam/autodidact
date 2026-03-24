@@ -23,6 +23,7 @@ _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
+from src.git_utils import resolve_main_repo
 
 # Cache for tool availability (per-session via file)
 _TOOL_CACHE_PATH = Path("/tmp/autodidact_tool_cache.json")
@@ -174,6 +175,7 @@ def main() -> None:
     is_error = hook_input.get("is_error", False)
     session_id = hook_input.get("session_id", "")
     cwd = hook_input.get("cwd", "")
+    project_path = resolve_main_repo(cwd) if cwd else ""
 
     messages: list[str] = []
 
@@ -204,7 +206,7 @@ def main() -> None:
                     category="error_fix",
                     confidence=0.5,
                     source="error_learner",
-                    project_path=cwd,
+                    project_path=project_path,
                     session_id=session_id,
                     error_signature=signature,
                     error_type=tool_name,
@@ -228,7 +230,7 @@ def main() -> None:
                             category="code_pattern",
                             confidence=0.3,
                             source="quality_check",
-                            project_path=cwd,
+                            project_path=project_path,
                             session_id=session_id,
                         )
 

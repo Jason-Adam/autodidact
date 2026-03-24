@@ -14,6 +14,7 @@ _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
+from src.git_utils import resolve_main_repo
 
 
 def main() -> None:
@@ -24,6 +25,7 @@ def main() -> None:
 
     session_id = hook_input.get("session_id", "")
     cwd = hook_input.get("cwd", "")
+    project_path = resolve_main_repo(cwd) if cwd else ""
     agent_output = hook_input.get("stdout", "")
 
     if not agent_output:
@@ -47,7 +49,7 @@ def main() -> None:
                     value=learning.get("value", ""),
                     confidence=0.4,
                     source="subagent_discovery",
-                    project_path=cwd,
+                    project_path=project_path,
                     session_id=session_id,
                 )
             except (json.JSONDecodeError, KeyError):

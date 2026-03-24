@@ -34,6 +34,7 @@ SKILL_DIRS = [
     "review",
     "handoff",
     "publish",
+    "loop",
 ]
 AGENT_FILES = [
     "interviewer.md",
@@ -59,6 +60,7 @@ COMMAND_FILES = [
     "review.md",
     "handoff.md",
     "publish.md",
+    "loop.md",
 ]
 
 HOOK_EVENTS = {

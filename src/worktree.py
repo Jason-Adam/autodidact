@@ -15,6 +15,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from src.git_utils import resolve_main_repo
+
 WORKTREE_DIR = ".worktrees"
 BRANCH_PREFIX = "fleet"
 STATE_DIR = ".planning/fleet"
@@ -122,8 +124,11 @@ class FleetState:
 class WorktreeManager:
     """Manages git worktrees and fleet state for parallel execution."""
 
-    def __init__(self, project_root: Path) -> None:
-        self.project_root = project_root
+    def __init__(self, project_root: Path, state_root: Path | None = None) -> None:
+        # Resolve to main repo for git operations (prevents nested worktrees)
+        self.project_root = Path(resolve_main_repo(str(project_root)))
+        # State lives in the caller's directory (preserves per-worktree isolation)
+        self._state_root = state_root or project_root
         self.state: FleetState | None = self._load_state()
 
     @property
@@ -132,7 +137,7 @@ class WorktreeManager:
 
     @property
     def state_path(self) -> Path:
-        return self.project_root / STATE_DIR / STATE_FILE
+        return self._state_root / STATE_DIR / STATE_FILE
 
     # ── State Persistence ───────────────────────────────────────────
 
@@ -359,3 +364,84 @@ class WorktreeManager:
 
     def is_active(self) -> bool:
         return self.state is not None and self.state.status == "in_progress"
+
+    # ── Fleet Recovery ─────────────────────────────────────────────
+
+    def _check_worktree_health(self, worker: WorkerState) -> str:
+        """Check a worker's worktree for usable changes.
+
+        Returns one of:
+        - "missing"    — worktree path doesn't exist on disk
+        - "committed"  — worktree has committed changes on its branch
+        - "uncommitted"— worktree has uncommitted changes
+        - "empty"      — worktree exists but has no changes at all
+        """
+        path = Path(worker.path)
+        if not path.exists():
+            return "missing"
+
+        # Check for committed changes on the worker's branch
+        try:
+            result = subprocess.run(
+                ["git", "log", "--oneline", f"HEAD..{worker.branch}"],
+                cwd=str(self.project_root),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return "committed"
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+        # Check for uncommitted changes in the worktree
+        try:
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=str(path),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return "uncommitted"
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+        return "empty"
+
+    def recover_fleet(self) -> list[WorkerState]:
+        """Recover interrupted fleet workers.
+
+        Scans active.json for workers with status='active' (interrupted mid-execution).
+
+        For each interrupted worker:
+        - 'committed' -> mark as 'completed' (ready to merge)
+        - 'uncommitted' -> keep as 'active' (needs re-dispatch)
+        - 'empty' -> mark as 'failed', clean up worktree
+        - 'missing' -> mark as 'failed'
+
+        Returns list of workers still needing re-dispatch (status='active').
+        """
+        if self.state is None:
+            return []
+
+        needs_redispatch: list[WorkerState] = []
+
+        for worker in self.state.all_workers:
+            if worker.status != "active":
+                continue
+
+            health = self._check_worktree_health(worker)
+
+            if health == "committed":
+                worker.status = "completed"
+            elif health == "uncommitted":
+                needs_redispatch.append(worker)
+            elif health in ("empty", "missing"):
+                if health == "empty":
+                    self.destroy_worktree(worker.task_id)
+                worker.status = "failed"
+
+        self._save_state()
+        return needs_redispatch
