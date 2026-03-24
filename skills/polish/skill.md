@@ -25,7 +25,7 @@ You are a code polish coordinator. You run three review perspectives in parallel
    - If no changed files found, ask the user what to polish
 
 2. **Query learning DB**:
-   - FTS5 search for known issues on target files
+   - Use `LearningDB.query_fts(search_text)` to find known issues on target files
    - Surface any prior quality scores or error patterns as context for agents
 
 3. **Fan out three agents in parallel**:
