@@ -110,6 +110,117 @@ def _tier1_active_state(cwd: str) -> RouterResult | None:
     return None
 
 
+# ── Tier 2.5: Plan Structure Analysis ─────────────────────────────────
+
+
+def _parse_plan_phases(text: str) -> list[dict[str, list[str]]]:
+    """Extract phases and their file references from a plan markdown doc.
+
+    Returns a list of dicts, each with key "files" listing paths mentioned
+    in that phase's steps.
+    """
+    phases: list[dict[str, list[str]]] = []
+    current_files: list[str] = []
+    in_phase = False
+
+    for line in text.splitlines():
+        # Phase headers: "### Phase 1: ..." or "## Phase 1: ..."
+        if re.match(r"^#{2,3}\s+Phase\s+\d+", line, re.IGNORECASE):
+            if in_phase:
+                phases.append({"files": current_files})
+            current_files = []
+            in_phase = True
+            continue
+        # Next non-phase heading ends the current phase
+        if in_phase and re.match(r"^#{2,3}\s+(?!Phase\s+\d+)", line):
+            phases.append({"files": current_files})
+            current_files = []
+            in_phase = False
+            continue
+        # Collect file paths: backticked paths or common extensions
+        if in_phase:
+            for match in re.finditer(r"`([^`]+\.(?:py|ts|js|md|json|yaml|yml|toml|sql|sh))`", line):
+                current_files.append(match.group(1))
+
+    # Close last open phase
+    if in_phase:
+        phases.append({"files": current_files})
+
+    return phases
+
+
+def _phases_are_independent(phases: list[dict[str, list[str]]]) -> bool:
+    """Check if phases touch disjoint file sets (parallelizable)."""
+    if len(phases) < 2:
+        return False
+    seen: set[str] = set()
+    for phase in phases:
+        file_set = set(phase["files"])
+        if file_set & seen:
+            return False
+        seen |= file_set
+    # Need at least some file references to judge independence
+    return len(seen) > 0
+
+
+def _tier25_plan_analysis(cwd: str) -> RouterResult | None:
+    """Analyze existing plan structure to pick orchestrator. Zero cost."""
+    if not cwd:
+        return None
+
+    plans_dir = Path(cwd) / ".planning" / "plans"
+    if not plans_dir.exists():
+        return None
+
+    # Find the most recent plan (sorted by filename which is date-prefixed)
+    plan_files = sorted(plans_dir.glob("*.md"), reverse=True)
+    if not plan_files:
+        return None
+
+    text = plan_files[0].read_text()
+    phases = _parse_plan_phases(text)
+    phase_count = len(phases)
+
+    if phase_count == 0:
+        return None
+
+    # Trivial plan — single phase or very small
+    if phase_count == 1:
+        return RouterResult(
+            skill="direct",
+            confidence=0.8,
+            tier=2,
+            reasoning=f"Plan has 1 phase — direct execution (plan: {plan_files[0].name})",
+        )
+
+    # Parallelizable — phases touch disjoint files
+    if _phases_are_independent(phases):
+        return RouterResult(
+            skill="fleet",
+            confidence=0.85,
+            tier=2,
+            reasoning=f"Plan has {phase_count} independent phases"
+            f" — fleet (plan: {plan_files[0].name})",
+        )
+
+    # Large plan — likely multi-session
+    if phase_count > 5:
+        return RouterResult(
+            skill="campaign",
+            confidence=0.85,
+            tier=2,
+            reasoning=f"Plan has {phase_count} phases — campaign (plan: {plan_files[0].name})",
+        )
+
+    # Default: sequential multi-phase, single session
+    return RouterResult(
+        skill="run",
+        confidence=0.85,
+        tier=2,
+        reasoning=f"Plan has {phase_count} sequential phases — run (plan: {plan_files[0].name})",
+    )
+
+
 # ── Tier 2: Keyword Heuristic ──────────────────────────────────────────
 
 _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
@@ -223,6 +334,11 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
 
     # Tier 2: Keyword heuristic
     result = _tier2_keyword_heuristic(prompt)
+    if result:
+        return result
+
+    # Tier 2.5: Plan structure analysis
+    result = _tier25_plan_analysis(cwd)
     if result:
         return result
 

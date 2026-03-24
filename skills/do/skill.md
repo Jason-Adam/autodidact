@@ -23,16 +23,24 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 
 1. **If the hook already classified the request** (Tiers 0-2), the routing banner will appear in context. Follow the routing decision — invoke the named skill directly.
 
-2. **If classification reached Tier 3** (no deterministic match), classify the user's intent into one of these categories:
-   - `experiment` -- User wants iterative optimization against a metric
+2. **If classification reached Tier 3** (no deterministic match), classify the user's intent using this complexity rubric:
+
+   **Non-orchestration skills** (match these first):
+   - `experiment` — User wants iterative optimization against a metric
    - `plan` — User needs to clarify, research, or plan (all three are one pipeline)
-   - `run` — Task needs multi-step orchestration in one session
-   - `campaign` — Task spans multiple sessions
-   - `fleet` — Task can be parallelized across worktrees
    - `review` — User wants code review
    - `handoff` — User wants to create a session transfer document
    - `learn` — User wants to teach autodidact something
-   - `direct` — Simple enough to just do it (no orchestration needed)
+
+   **Orchestration skills** (use the complexity matrix below):
+   | Signal | Route | Confidence cue |
+   |---|---|---|
+   | Single action, no decomposition needed | `direct` | "I can do this in one tool call" |
+   | 2-5 sequential steps, completable in one session | `run` | "This needs phases but I won't run out of context" |
+   | Independent units touching different files | `fleet` | "These can run in parallel without conflicts" |
+   | Too large for one session, or user mentions multi-day/multi-session | `campaign` | "This will exhaust context or span multiple sessions" |
+
+   **Decision priority**: `direct` > `fleet` (if parallelizable) > `run` (if sequential) > `campaign` (if scope exceeds one session). Prefer simpler orchestration when uncertain.
 
 3. **For `direct` classification**: Just do the task. No orchestration overhead.
 
@@ -52,8 +60,8 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 ## Quality Gates
 
 - Classification must happen within 1 turn — no back-and-forth to classify
-- If uncertain between two skills, prefer the simpler one (interview > archon, marshal > fleet)
-- Never route to fleet unless the user explicitly mentions parallelism or the task is clearly decomposable
+- If uncertain between two skills, prefer the simpler orchestrator (direct > run > fleet > campaign)
+- Fleet is allowed when plan analysis or complexity assessment shows independent, non-overlapping units — explicit user mention of parallelism is not required
 
 ## Exit Protocol
 

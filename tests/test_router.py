@@ -115,6 +115,111 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.tier, 3)  # Falls through to LLM
 
 
+class TestTier25PlanAnalysis(unittest.TestCase):
+    """Tests for plan-structure-based orchestrator selection."""
+
+    def _write_plan(self, tmpdir: str, content: str) -> None:
+        plans = Path(tmpdir) / ".planning" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+        (plans / "2026-01-01-test.md").write_text(content)
+
+    def test_single_phase_routes_direct(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_plan(
+                tmpdir,
+                ("## Plan: Small fix\n### Phase 1: Fix the bug\n- [ ] Edit `src/router.py`\n"),
+            )
+            r = classify("implement the fix", cwd=tmpdir)
+            self.assertEqual(r.skill, "direct")
+
+    def test_sequential_phases_route_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_plan(
+                tmpdir,
+                (
+                    "## Plan: Auth refactor\n"
+                    "### Phase 1: Update models\n"
+                    "- [ ] Edit `src/models.py`\n"
+                    "### Phase 2: Update routes\n"
+                    "- [ ] Edit `src/models.py`\n"
+                    "- [ ] Edit `src/routes.py`\n"
+                    "### Phase 3: Add tests\n"
+                    "- [ ] Edit `tests/test_auth.py`\n"
+                ),
+            )
+            r = classify("implement the auth refactor", cwd=tmpdir)
+            self.assertEqual(r.skill, "run")
+            self.assertIn("3 sequential phases", r.reasoning)
+
+    def test_independent_phases_route_fleet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_plan(
+                tmpdir,
+                (
+                    "## Plan: Multi-module update\n"
+                    "### Phase 1: Update auth\n"
+                    "- [ ] Edit `src/auth.py`\n"
+                    "### Phase 2: Update billing\n"
+                    "- [ ] Edit `src/billing.py`\n"
+                    "### Phase 3: Update notifications\n"
+                    "- [ ] Edit `src/notifications.py`\n"
+                ),
+            )
+            r = classify("implement the multi-module update", cwd=tmpdir)
+            self.assertEqual(r.skill, "fleet")
+            self.assertIn("independent phases", r.reasoning)
+
+    def test_large_plan_routes_campaign(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            phases = ""
+            for i in range(1, 8):
+                phases += (
+                    f"### Phase {i}: Step {i}\n"
+                    f"- [ ] Edit `src/file{i}.py`\n"
+                    f"- [ ] Edit `src/shared.py`\n"
+                )
+            self._write_plan(tmpdir, f"## Plan: Big migration\n{phases}")
+            r = classify("implement the migration", cwd=tmpdir)
+            self.assertEqual(r.skill, "campaign")
+            self.assertIn("7 phases", r.reasoning)
+
+    def test_no_plan_falls_through(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = classify("implement something", cwd=tmpdir)
+            # No plan exists, should fall through to Tier 3
+            self.assertEqual(r.tier, 3)
+
+    def test_keyword_match_takes_precedence(self) -> None:
+        """Tier 2 keywords should fire before Tier 2.5 plan analysis."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_plan(
+                tmpdir, ("## Plan: Small fix\n### Phase 1: Fix\n- [ ] Edit `src/router.py`\n")
+            )
+            r = classify("code review the changes", cwd=tmpdir)
+            self.assertEqual(r.skill, "review")
+            self.assertEqual(r.tier, 2)
+
+    def test_most_recent_plan_is_used(self) -> None:
+        """When multiple plans exist, the most recent (by filename) is used."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plans = Path(tmpdir) / ".planning" / "plans"
+            plans.mkdir(parents=True)
+            # Older plan: single phase → direct
+            (plans / "2026-01-01-old.md").write_text(
+                "## Plan: Old\n### Phase 1: Fix\n- [ ] Edit `src/old.py`\n"
+            )
+            # Newer plan: 3 sequential phases → run
+            (plans / "2026-03-01-new.md").write_text(
+                "## Plan: New\n"
+                "### Phase 1: A\n- [ ] Edit `src/a.py`\n"
+                "### Phase 2: B\n- [ ] Edit `src/a.py`\n"
+                "### Phase 3: C\n- [ ] Edit `src/c.py`\n"
+            )
+            r = classify("implement the plan", cwd=tmpdir)
+            self.assertEqual(r.skill, "run")
+            self.assertIn("new.md", r.reasoning)
+
+
 class TestTier3Fallthrough(unittest.TestCase):
     def test_unmatched_returns_classify(self) -> None:
         r = classify("fix the bug in the login form")
