@@ -69,7 +69,7 @@ git clone https://github.com/Jason-Adam/autodidact.git
 cd autodidact
 uv sync                       # install dependencies and create .venv
 uv run pre-commit install     # set up pre-commit hooks (ruff lint, ruff format, mypy)
-uv run python3 install.py     # install globally to ~/.claude/
+./install                     # install globally to ~/.claude/
 ```
 
 This will:
@@ -80,7 +80,7 @@ This will:
 To uninstall:
 
 ```bash
-python3 install.py --uninstall
+./install --uninstall
 ```
 
 The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` manually to remove it.
