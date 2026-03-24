@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -64,51 +65,29 @@ def _tier1_active_state(cwd: str) -> RouterResult | None:
 
     planning = Path(cwd) / ".planning"
 
-    # Active campaign?
-    campaigns = planning / "campaigns"
-    if campaigns.exists():
-        for f in campaigns.glob("*.json"):
+    # (path_or_glob, is_glob, skill, reasoning_template)
+    _checks: list[tuple[Path, bool, str, str]] = [
+        (planning / "campaigns", True, "campaign", "Active campaign: {name}"),
+        (planning / "run_state.json", False, "run", "Active run sequence"),
+        (planning / "fleet" / "active.json", False, "fleet", "Active fleet session"),
+    ]
+
+    for path, is_glob, skill, reasoning_tpl in _checks:
+        if not path.exists():
+            continue
+        files = list(path.glob("*.json")) if is_glob else [path]
+        for f in files:
             try:
                 data = json.loads(f.read_text())
                 if data.get("status") == "in_progress":
                     return RouterResult(
-                        skill="campaign",
+                        skill=skill,
                         confidence=0.9,
                         tier=1,
-                        reasoning=f"Active campaign: {data.get('name', f.stem)}",
+                        reasoning=reasoning_tpl.format(name=data.get("name", f.stem)),
                     )
             except (json.JSONDecodeError, KeyError):
                 pass
-
-    # Active run state?
-    run_state = planning / "run_state.json"
-    if run_state.exists():
-        try:
-            data = json.loads(run_state.read_text())
-            if data.get("status") == "in_progress":
-                return RouterResult(
-                    skill="run",
-                    confidence=0.9,
-                    tier=1,
-                    reasoning="Active run sequence",
-                )
-        except (json.JSONDecodeError, KeyError):
-            pass
-
-    # Active fleet?
-    fleet_state = planning / "fleet" / "active.json"
-    if fleet_state.exists():
-        try:
-            data = json.loads(fleet_state.read_text())
-            if data.get("status") == "in_progress":
-                return RouterResult(
-                    skill="fleet",
-                    confidence=0.9,
-                    tier=1,
-                    reasoning="Active fleet session",
-                )
-        except (json.JSONDecodeError, KeyError):
-            pass
 
     return None
 
@@ -326,6 +305,37 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
 
 # ── Public API ──────────────────────────────────────────────────────────
 
+# Skills that are installed with the autodidact- prefix under ~/.claude/skills/.
+# The router returns fully-qualified names so Claude Code never confuses them
+# with project-scoped skills (e.g. crsdigital:create-plan vs autodidact-plan).
+_AUTODIDACT_SKILLS: frozenset[str] = frozenset(
+    {
+        "plan",
+        "run",
+        "fleet",
+        "campaign",
+        "learn",
+        "handoff",
+        "experiment",
+        "loop",
+        "polish",
+        "sync-thoughts",
+        "do",
+    }
+)
+
+
+def _qualify_skill(name: str) -> str:
+    """Add the autodidact- prefix for installed skills.
+
+    Signal values (``direct``, ``classify``) and command-only entries
+    (``review``, ``forget``, ``learn_status``) are returned bare.
+    """
+    if name in _AUTODIDACT_SKILLS:
+        return f"autodidact-{name}"
+    return name
+
+
 _PLAN_SKILL_TO_LOOP_MODE: dict[str, str] = {
     "direct": "run",
     "run": "run",
@@ -360,28 +370,25 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
 
     Tier 3 returns skill="classify" to signal that LLM classification
     is needed (handled by the /do skill markdown).
+
+    Skill names are returned with the ``autodidact-`` prefix so that
+    Claude Code resolves them unambiguously, even when project-scoped
+    skills (e.g. ``crsdigital:create-plan``) are also available.
     """
-    # Tier 0: Pattern match
-    result = _tier0_pattern_match(prompt)
-    if result:
-        return result
+    # Cost-ascending: run each tier until one matches.
+    resolvers: tuple[Callable[[], RouterResult | None], ...] = (
+        lambda: _tier0_pattern_match(prompt),
+        lambda: _tier1_active_state(cwd),
+        lambda: _tier2_keyword_heuristic(prompt),
+        lambda: _tier25_plan_analysis(cwd),
+    )
+    for resolver in resolvers:
+        result = resolver()
+        if result:
+            result.skill = _qualify_skill(result.skill)
+            return result
 
-    # Tier 1: Active state
-    result = _tier1_active_state(cwd)
-    if result:
-        return result
-
-    # Tier 2: Keyword heuristic
-    result = _tier2_keyword_heuristic(prompt)
-    if result:
-        return result
-
-    # Tier 2.5: Plan structure analysis
-    result = _tier25_plan_analysis(cwd)
-    if result:
-        return result
-
-    # Tier 3: Signal for LLM classification
+    # Tier 3: Signal for LLM classification (no prefix needed)
     return RouterResult(
         skill="classify",
         confidence=0.0,
