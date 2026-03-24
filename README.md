@@ -9,6 +9,7 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 - **Learns from errors** — captures error patterns, remembers fixes, and injects relevant knowledge into future sessions via FTS5 full-text search
 - **Plans before it builds** — a unified `/plan` pipeline that clarifies requirements (Socratic interview), researches the codebase (parallel agents), and produces implementation plans
 - **Orchestrates complex work** — three tiers of orchestration: `/run` (single-session), `/campaign` (multi-session), `/fleet` (parallel git worktrees)
+- **Experiments autonomously** — `/experiment` runs a metric-driven THINK → TEST → REFLECT loop that hypothesizes changes, measures impact, keeps improvements, and reverts regressions — all on a safety branch
 - **Runs unattended** — `/loop` drives any execution mode autonomously with intelligent exit detection, progress tracking, and rate limit handling
 - **Routes cheaply** — a cost-ascending `/do` router resolves most requests with zero LLM tokens (pattern match → active state → keyword heuristic) before falling back to classification
 - **Checks quality per-edit** — hooks run ruff/mypy on Python files and eslint on JavaScript files after every edit, feeding results back into the learning DB
@@ -22,12 +23,12 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
                         │  T2: keyword → T3: LLM           │
                         └──────────┬───────────────────────┘
                                    │
-         ┌──────────┬──────────┬───┴──────┬──────────┬──────────┐
-         ▼          ▼          ▼          ▼          ▼          ▼
-      /plan      /run     /campaign   /fleet     /review   /learn
-    Clarify →   single     multi      parallel   quality   teach &
-    Research →  session    session    worktree   scoring   query DB
-    Design
+         ┌──────────┬──────────┬───┴──────┬──────────┬──────────┬──────────┐
+         ▼          ▼          ▼          ▼          ▼          ▼          ▼
+      /plan      /run     /campaign   /fleet   /experiment /review   /learn
+    Clarify →   single     multi      parallel   metric    quality   teach &
+    Research →  session    session    worktree   driven    scoring   query DB
+    Design                                       optimize
 
          ┌──────────────────────────────────────────────────────┐
          │  /loop  (autonomous driver)                          │
@@ -58,11 +59,11 @@ The loop **wraps** existing skills — it doesn't reimplement them. Each iterati
 
 | Layer | Count | Description |
 |-------|-------|-------------|
-| **Core library** | 15 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop |
+| **Core library** | 18 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness |
 | **Hooks** | 8 | Python scripts on Claude Code lifecycle events (session start, tool use, compaction, stop) |
-| **Skills** | 10 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
+| **Skills** | 11 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
 | **Agents** | 10 | Specialized personas: interviewer, fleet-worker, quality-scorer, 6 research agents, python-engineer |
-| **Commands** | 12 | User-facing slash commands that invoke skills |
+| **Commands** | 13 | User-facing slash commands that invoke skills |
 
 ### Learning database
 
@@ -84,6 +85,7 @@ Record (hooks capture errors/patterns)
 ├── research/         # Research docs with YAML frontmatter
 ├── plans/            # Plan docs (flat markdown)
 ├── campaigns/        # Campaign state JSON
+├── experiments/      # Experiment state (state.json + log.tsv per session)
 ├── fleet/            # Fleet state (active.json)
 ├── loop_signals.json # Exit tracker state
 ├── loop_cb_state.json# Circuit breaker state
@@ -182,6 +184,14 @@ Persists state in `.planning/campaigns/`. The session-start hook detects active 
 
 Creates isolated git worktrees, dispatches workers in waves, compresses discovery briefs between waves, and merges results. Recovers interrupted workers automatically on resume.
 
+### `/experiment` — metric-driven optimization
+
+```
+/experiment optimize the hot loop in src/parser.py for throughput
+```
+
+Runs an autonomous THINK → TEST → REFLECT loop. You provide target files, a metric command (any shell command that outputs a number), and an optimization direction (minimize/maximize). Claude hypothesizes changes, measures their impact, keeps improvements, and reverts regressions — all on a `experiment/safety-{id}` git branch. Convergence detection (plateau, oscillation, repeated failures) stops the loop when progress stalls. State persists in `.planning/experiments/` so interrupted sessions can resume.
+
 ### `/loop` — autonomous execution
 
 Run any execution mode unattended:
@@ -207,7 +217,8 @@ uv run --project ~/code/autodidact python3 -m src.loop run --cwd .
 3. Repeated done signals → 2+ explicit completions
 4. Safety backstop → 5+ completion indicators
 5. Dual-condition gate → 2+ indicators AND Claude's EXIT_SIGNAL
-6. Plan complete → all checkboxes checked
+6. Fitness gate → all `### Fitness` expressions in the plan pass
+7. Plan complete → all checkboxes checked
 
 **Circuit breaker** (3-state: closed → half_open → open):
 - 3 iterations with no git progress → opens
@@ -237,7 +248,7 @@ User-taught knowledge starts at 0.7 confidence and is injected into future sessi
 uv run python3 -m pytest tests/ -v
 ```
 
-185 tests covering the learning DB, confidence math, router classification, interview scoring, circuit breaker (2-state and 3-state), response analysis, git progress detection, exit tracking, loop orchestration, and fleet recovery.
+227 tests covering the learning DB, confidence math, router classification, interview scoring, circuit breaker (2-state and 3-state), response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, experiment state management, convergence detection, and fitness expression evaluation.
 
 ## Design principles
 
