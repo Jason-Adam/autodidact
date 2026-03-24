@@ -12,4 +12,4 @@ You are tasked with removing or decaying knowledge in autodidact's learning data
    - **Delete**: Remove entirely from the DB
 4. Execute the chosen action and confirm
 
-Use FTS5 search to find matches, then apply the appropriate action.
+Use `LearningDB.query_fts(search_text)` to find matches, then apply the appropriate action.

@@ -36,7 +36,18 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
 
 ### Querying (`/learn query <search terms>`)
 
-1. Run FTS5 search against the learning DB
+1. Run FTS5 search against the learning DB:
+   ```bash
+   python3 -c "
+   import sys; sys.path.insert(0, 'REPO_PATH')
+   from src.db import LearningDB
+   db = LearningDB()
+   results = db.query_fts('SEARCH_TERMS')
+   for r in results:
+       print(f\"[{r['confidence']:.2f}] {r['topic']}/{r['key']}: {r['value'][:120]}\")
+   db.close()
+   "
+   ```
 2. Display results with topic, key, value, confidence, and observation count
 3. If no results, suggest the user teach it via `/learn`
 
