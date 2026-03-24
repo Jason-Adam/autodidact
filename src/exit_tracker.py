@@ -68,7 +68,11 @@ class ExitTracker:
 
         self._save()
 
-    def evaluate(self, analysis: ResponseAnalysis | None = None) -> ExitDecision:
+    def evaluate(
+        self,
+        analysis: ResponseAnalysis | None = None,
+        fitness_results: tuple[bool, list[object]] | None = None,
+    ) -> ExitDecision:
         """Evaluate exit conditions in Ralph's priority order."""
         # 0. Permission denied
         if analysis is not None and analysis.has_permission_denials:
@@ -97,6 +101,10 @@ class ExitTracker:
         # 5. Plan complete
         if self._check_plan_complete():
             return ExitDecision(should_exit=True, reason="plan_complete")
+
+        # 6. Fitness gate (machine-checkable exit from plan)
+        if fitness_results is not None and fitness_results[0]:
+            return ExitDecision(should_exit=True, reason="fitness_gate_passed")
 
         return ExitDecision(should_exit=False, reason="")
 

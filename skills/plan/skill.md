@@ -89,6 +89,10 @@ When entering this phase:
 
    ### Risks
    What could go wrong and how to mitigate.
+
+   ### Fitness
+   <!-- Optional: machine-checkable exit conditions -->
+   <!-- Format: `command` comparator value -->
    ```
 
 2. **Present the plan** to the user for review

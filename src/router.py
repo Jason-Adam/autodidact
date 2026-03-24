@@ -38,6 +38,7 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?publish\b", "publish"),
     (r"^/?(do\s+)?forget\b", "forget"),
     (r"^/?(do\s+)?learn.?status\b", "learn_status"),
+    (r"^/?(do\s+)?experiment\b", "experiment"),
 ]
 
 
@@ -166,6 +167,15 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("transfer", 0.3),
         ("session summary", 0.4),
         ("context transfer", 0.5),
+    ],
+    "experiment": [
+        ("experiment", 0.5),
+        ("optimize", 0.4),
+        ("benchmark", 0.3),
+        ("metric", 0.3),
+        ("iterate", 0.2),
+        ("try different", 0.3),
+        ("improve performance", 0.4),
     ],
 }
 

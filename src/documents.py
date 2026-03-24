@@ -132,8 +132,10 @@ def save_document(
 
     Returns the path to the saved file.
     """
-    if doc_type not in ("research", "plans"):
-        raise ValueError(f"doc_type must be 'research' or 'plans', got '{doc_type}'")
+    if doc_type not in ("research", "plans", "experiments"):
+        raise ValueError(
+            f"doc_type must be 'research', 'plans', or 'experiments', got '{doc_type}'"
+        )
 
     target_dir = Path(cwd) / ".planning" / doc_type
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -145,7 +147,7 @@ def save_document(
         frontmatter = generate_frontmatter(topic, cwd)
         full_content = frontmatter + content
     else:
-        full_content = content
+        full_content = content  # plans and experiments: no frontmatter
 
     filepath.write_text(full_content)
     return filepath

@@ -24,6 +24,7 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 1. **If the hook already classified the request** (Tiers 0-2), the routing banner will appear in context. Follow the routing decision — invoke the named skill directly.
 
 2. **If classification reached Tier 3** (no deterministic match), classify the user's intent into one of these categories:
+   - `experiment` -- User wants iterative optimization against a metric
    - `plan` — User needs to clarify, research, or plan (all three are one pipeline)
    - `run` — Task needs multi-step orchestration in one session
    - `campaign` — Task spans multiple sessions

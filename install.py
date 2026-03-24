@@ -26,6 +26,7 @@ INSTALLED_MARKER = AUTODIDACT_DIR / ".installed"
 # Symlink mappings: (source_in_repo, target_in_claude, prefix)
 SKILL_DIRS = [
     "do",
+    "experiment",
     "run",
     "campaign",
     "fleet",
@@ -50,6 +51,7 @@ AGENT_FILES = [
 ]
 COMMAND_FILES = [
     "do.md",
+    "experiment.md",
     "run.md",
     "campaign.md",
     "fleet.md",
