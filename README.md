@@ -32,7 +32,7 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
          ┌──────────────────────────────────────────────────────┐
          │  /loop  (autonomous driver)                          │
          │  Wraps /run, /campaign, or /fleet in an unattended   │
-         │  loop with exit detection + circuit breaker           │
+         │  loop with exit detection + circuit breaker          │
          └──────────────────────────────────────────────────────┘
 ```
 
