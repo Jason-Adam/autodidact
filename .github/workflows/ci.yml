@@ -16,6 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@test"
+
       - uses: astral-sh/setup-uv@v6
 
       - name: Set up Python ${{ matrix.python-version }}
