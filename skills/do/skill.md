@@ -42,7 +42,7 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 
    **Decision priority**: `direct` > `autodidact-fleet` (if parallelizable) > `autodidact-run` (if sequential) > `autodidact-campaign` (if scope exceeds one session). Prefer simpler orchestration when uncertain.
 
-   **IMPORTANT**: Always use the `autodidact-` prefix for skill names to ensure autodidact skills are invoked, not project-scoped alternatives.
+   **IMPORTANT**: Always use the `autodidact-` prefix for skill names to ensure autodidact skills are invoked, not project-scoped alternatives. Exceptions: `direct` (signal, not a skill), `review`, `forget`, and `learn_status` (command-only, no autodidact- prefix).
 
 3. **For `direct` classification**: Just do the task. No orchestration overhead.
 

@@ -10,6 +10,13 @@ from pathlib import Path
 from src.router import classify, select_loop_mode
 
 
+def _write_plan(tmpdir: str, content: str) -> None:
+    """Shared helper to write a plan file in a temp directory."""
+    plans = Path(tmpdir) / ".planning" / "plans"
+    plans.mkdir(parents=True, exist_ok=True)
+    (plans / "2026-01-01-test.md").write_text(content)
+
+
 class TestTier0PatternMatch(unittest.TestCase):
     def test_interview_routes_to_plan(self) -> None:
         r = classify("/do interview")
@@ -97,6 +104,12 @@ class TestTier0PatternMatch(unittest.TestCase):
         r = classify("loop through the array")
         self.assertNotEqual(r.skill, "autodidact-loop")
 
+    def test_forget_command_only(self) -> None:
+        """forget is command-only, no autodidact- prefix."""
+        r = classify("/do forget")
+        self.assertEqual(r.skill, "forget")
+        self.assertEqual(r.tier, 0)
+
     def test_no_match(self) -> None:
         r = classify("build the widget")
         self.assertNotEqual(r.tier, 0)
@@ -155,10 +168,7 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
 class TestTier25PlanAnalysis(unittest.TestCase):
     """Tests for plan-structure-based orchestrator selection."""
 
-    def _write_plan(self, tmpdir: str, content: str) -> None:
-        plans = Path(tmpdir) / ".planning" / "plans"
-        plans.mkdir(parents=True, exist_ok=True)
-        (plans / "2026-01-01-test.md").write_text(content)
+    _write_plan = staticmethod(_write_plan)
 
     def test_single_phase_routes_direct(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -168,6 +178,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
             )
             r = classify("implement the fix", cwd=tmpdir)
             self.assertEqual(r.skill, "direct")
+            self.assertEqual(r.tier, 2)
 
     def test_sequential_phases_route_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -268,10 +279,7 @@ class TestTier3Fallthrough(unittest.TestCase):
 class TestSelectLoopMode(unittest.TestCase):
     """Tests for plan-aware loop mode auto-selection."""
 
-    def _write_plan(self, tmpdir: str, content: str) -> None:
-        plans = Path(tmpdir) / ".planning" / "plans"
-        plans.mkdir(parents=True, exist_ok=True)
-        (plans / "2026-01-01-test.md").write_text(content)
+    _write_plan = staticmethod(_write_plan)
 
     def test_active_campaign_returns_campaign(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
