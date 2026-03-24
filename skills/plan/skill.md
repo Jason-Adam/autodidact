@@ -62,7 +62,10 @@ When entering this phase:
    print(f'Saved: {path}')
    "
    ```
-7. **Auto-publish** (if `AUTODIDACT_THOUGHTS_REPO` is configured): invoke `/publish` with the saved file path
+7. **Suggest syncing**: Offer to run `/sync-thoughts` to copy the research doc to `~/.planning/` for cross-project access.
+8. **Checkpoint before Design**: Tell the user the research document is saved locally and present their options:
+   - Continue to the Design phase in this session
+   - End the session here — the research doc is persisted at `.planning/research/` and can inform a fresh session
 
 ### Phase 3: Design (always runs)
 
@@ -110,7 +113,12 @@ When entering this phase:
    ```
    Plan is saved to `.planning/plans/YYYY-MM-DD-{slug}.md`
 
-5. **Auto-publish** (if `AUTODIDACT_THOUGHTS_REPO` is configured): invoke `/publish` with the saved file path. The local copy is kept for /run, /campaign, and /fleet to read.
+5. **Suggest syncing**: Offer to run `/sync-thoughts` to copy the plan to `~/.planning/` for cross-project access.
+
+6. **IMPORTANT — Always suggest saving before implementation**: After the plan is persisted, explicitly tell the user that the plan document is saved and ready. Present their options:
+   - Start a fresh session for implementation using `/run`, `/campaign`, or `/fleet` (recommended — clean context)
+   - Continue to implement in this session
+   - The local copy at `.planning/plans/` is always kept for implementation skills to read.
 
 ## Quality Gates
 
@@ -122,10 +130,15 @@ When entering this phase:
 
 ## Exit Protocol
 
-Once approved, suggest the next step:
-- Simple plans → execute directly or use `/run`
-- Complex plans → use `/campaign` for multi-session execution
-- Parallelizable plans → use `/fleet`
+**Always confirm documents are persisted before suggesting implementation.** The user prefers to clear context and start a fresh session for implementation.
+
+Once the plan is approved and saved:
+1. Confirm the plan document path (`.planning/plans/...`)
+2. Offer `/sync-thoughts` to centralize the document
+3. Recommend starting a fresh session for implementation:
+   - Simple plans → `/run`
+   - Complex plans → `/campaign` for multi-session execution
+   - Parallelizable plans → `/fleet`
 
 Record planning learnings in the DB (what patterns were discovered, what questions helped).
 

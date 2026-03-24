@@ -34,7 +34,7 @@ SKILL_DIRS = [
     "plan",
     "review",
     "handoff",
-    "publish",
+    "sync-thoughts",
     "loop",
 ]
 AGENT_FILES = [
@@ -61,7 +61,7 @@ COMMAND_FILES = [
     "plan.md",
     "review.md",
     "handoff.md",
-    "publish.md",
+    "sync-thoughts.md",
     "loop.md",
 ]
 
