@@ -110,15 +110,24 @@ def _patch_settings() -> None:
         for script in scripts:
             command = f"uv run --project {REPO_DIR} python3 {hooks_dir / script}"
             # Check if already registered (also match legacy python3-only commands)
+            # Check if already registered (match in hooks array or legacy top-level command)
             already = any(
-                h.get("command") == command or h.get("command") == f"python3 {hooks_dir / script}"
+                # New format: hooks array
+                any(
+                    hk.get("command") == command
+                    or hk.get("command") == f"python3 {hooks_dir / script}"
+                    for hk in h.get("hooks", [])
+                )
+                # Legacy format: command at top level
+                or h.get("command") == command
+                or h.get("command") == f"python3 {hooks_dir / script}"
                 for h in event_hooks
             )
             if not already:
                 event_hooks.append(
                     {
                         "matcher": "",
-                        "command": command,
+                        "hooks": [{"type": "command", "command": command}],
                     }
                 )
         hooks[event] = event_hooks
@@ -145,14 +154,24 @@ def _unpatch_settings() -> None:
 
     for event in list(hooks.keys()):
         original = hooks[event]
-        filtered = [
-            h
-            for h in original
-            if not (
-                h.get("command", "").startswith(f"python3 {hooks_dir}")
-                or h.get("command", "").startswith(f"uv run --project {REPO_DIR}")
-            )
-        ]
+
+        def _is_autodidact_hook(h: dict) -> bool:
+            # Legacy format: command at top level
+            cmd = h.get("command", "")
+            if cmd.startswith(f"python3 {hooks_dir}") or cmd.startswith(
+                f"uv run --project {REPO_DIR}"
+            ):
+                return True
+            # New format: check hooks array
+            for hk in h.get("hooks", []):
+                hk_cmd = hk.get("command", "")
+                if hk_cmd.startswith(f"python3 {hooks_dir}") or hk_cmd.startswith(
+                    f"uv run --project {REPO_DIR}"
+                ):
+                    return True
+            return False
+
+        filtered = [h for h in original if not _is_autodidact_hook(h)]
         if len(filtered) != len(original):
             changed = True
             if filtered:
