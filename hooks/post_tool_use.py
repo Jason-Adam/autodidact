@@ -22,11 +22,14 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
+from src.confidence import initial_confidence_for_outcome
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
 
 # Cache for tool availability (per-session via file)
 _TOOL_CACHE_PATH = Path("/tmp/autodidact_tool_cache.json")
+# Tracks the last known-error fix we surfaced, so we can decay if it didn't help
+_PENDING_FIX_PATH = Path("/tmp/autodidact_pending_fix.json")
 
 
 def _get_tool_cache() -> dict:
@@ -53,6 +56,34 @@ def _has_tool(name: str) -> bool:
     cache[name] = result
     _set_tool_cache(cache)
     return result
+
+
+def _load_pending_fix() -> dict | None:
+    """Load the pending fix marker, if any."""
+    if _PENDING_FIX_PATH.exists():
+        try:
+            return json.loads(_PENDING_FIX_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return None
+
+
+def _save_pending_fix(signature: str, learning_id: int) -> None:
+    """Save a marker that we surfaced a fix for this error signature."""
+    import contextlib
+
+    with contextlib.suppress(OSError):
+        _PENDING_FIX_PATH.write_text(
+            json.dumps({"signature": signature, "learning_id": learning_id})
+        )
+
+
+def _clear_pending_fix() -> None:
+    """Clear the pending fix marker."""
+    import contextlib
+
+    with contextlib.suppress(OSError):
+        _PENDING_FIX_PATH.unlink(missing_ok=True)
 
 
 def _normalize_error(error_text: str) -> str:
@@ -188,6 +219,13 @@ def main() -> None:
             signature = _normalize_error(error_text)
             sig_hash = hashlib.md5(signature.encode()).hexdigest()[:12]
 
+            # Check if a previous fix suggestion failed to resolve the error
+            pending_fix = _load_pending_fix()
+            if pending_fix and pending_fix.get("signature") == signature:
+                # Same error reappeared after we surfaced a fix — decay that learning
+                db.decay(pending_fix["learning_id"], amount=0.10)
+                _clear_pending_fix()
+
             # Check if we know this error
             known = db.get_by_error_signature(signature)
             if known:
@@ -197,6 +235,9 @@ def main() -> None:
                     f"(conf: {known['confidence']:.2f})"
                 )
                 messages.append(msg)
+                # Track that we surfaced this fix — if the same error
+                # recurs next tool use, we'll decay it
+                _save_pending_fix(signature, known["id"])
             else:
                 # Record new error
                 db.record(
@@ -204,7 +245,7 @@ def main() -> None:
                     key=f"err_{sig_hash}",
                     value=f"Error in {tool_name}: {signature}",
                     category="error_fix",
-                    confidence=0.5,
+                    confidence=initial_confidence_for_outcome("failure"),
                     source="error_learner",
                     project_path=project_path,
                     session_id=session_id,
@@ -212,6 +253,11 @@ def main() -> None:
                     error_type=tool_name,
                     outcome="failure",
                 )
+                _clear_pending_fix()
+        else:
+            # Non-error tool use clears any pending fix tracker
+            # (the fix worked — the error didn't recur)
+            _clear_pending_fix()
 
         # Per-edit quality checks
         if tool_name in ("Edit", "Write") and not is_error:

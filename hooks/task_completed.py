@@ -16,6 +16,17 @@ sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
 
+# Marker file so stop.py can detect whether any task completed this session
+_TASK_SUCCESS_PATH = Path("/tmp/autodidact_task_success.json")
+
+
+def _mark_task_success(session_id: str) -> None:
+    """Write a marker indicating a task completed successfully in this session."""
+    import contextlib
+
+    with contextlib.suppress(OSError):
+        _TASK_SUCCESS_PATH.write_text(json.dumps({"session_id": session_id}))
+
 
 def main() -> None:
     try:
@@ -37,6 +48,10 @@ def main() -> None:
             ).fetchall()
             for row in rows:
                 db.boost(row["id"], amount=0.05)  # Small boost for task completion
+                db.set_outcome(row["id"], "success")
+
+            # Mark that a task succeeded in this session
+            _mark_task_success(session_id)
 
         db.close()
     except Exception:

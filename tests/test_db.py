@@ -367,5 +367,112 @@ class TestOutcome(unittest.TestCase):
         self.assertEqual(row["outcome"], "")
 
 
+class TestSetOutcome(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmpdir = tempfile.mkdtemp()
+        self.db_path = Path(self.tmpdir) / "test_learning.db"
+        self.db = LearningDB(self.db_path)
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_set_outcome_updates_field(self) -> None:
+        lid = self.db.record("test", "out_test", "value")
+        self.db.set_outcome(lid, "success")
+        row = self.db.get_by_id(lid)
+        assert row is not None
+        self.assertEqual(row["outcome"], "success")
+
+    def test_set_outcome_overwrites_existing(self) -> None:
+        lid = self.db.record("test", "out_test2", "value", outcome="failure")
+        self.db.set_outcome(lid, "success")
+        row = self.db.get_by_id(lid)
+        assert row is not None
+        self.assertEqual(row["outcome"], "success")
+
+    def test_set_outcome_updates_last_seen(self) -> None:
+        lid = self.db.record("test", "out_test3", "value")
+        # Backdate last_seen
+        self.db.conn.execute(
+            "UPDATE learnings SET last_seen = '2020-01-01T00:00:00' WHERE id = ?",
+            (lid,),
+        )
+        self.db.conn.commit()
+        self.db.set_outcome(lid, "interesting")
+        row = self.db.get_by_id(lid)
+        assert row is not None
+        self.assertNotEqual(row["last_seen"], "2020-01-01T00:00:00")
+
+
+class TestGetAccessedInSession(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmpdir = tempfile.mkdtemp()
+        self.db_path = Path(self.tmpdir) / "test_learning.db"
+        self.db = LearningDB(self.db_path)
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_returns_accessed_learnings(self) -> None:
+        lid1 = self.db.record("a", "k1", "v1", session_id="sess1")
+        self.db.record("b", "k2", "v2", session_id="sess1")
+        self.db.increment_access(lid1)
+        # second learning has access_count=0, should not be returned
+        results = self.db.get_accessed_in_session("sess1")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["id"], lid1)
+
+    def test_excludes_other_sessions(self) -> None:
+        lid = self.db.record("a", "k1", "v1", session_id="sess1")
+        self.db.increment_access(lid)
+        self.db.record("b", "k2", "v2", session_id="sess2")
+        results = self.db.get_accessed_in_session("sess2")
+        self.assertEqual(len(results), 0)
+
+    def test_empty_session_returns_empty(self) -> None:
+        results = self.db.get_accessed_in_session("nonexistent")
+        self.assertEqual(len(results), 0)
+
+    def test_multiple_accessed(self) -> None:
+        lid1 = self.db.record("a", "k1", "v1", session_id="sess1")
+        lid2 = self.db.record("b", "k2", "v2", session_id="sess1")
+        self.db.increment_access(lid1)
+        self.db.increment_access(lid2)
+        results = self.db.get_accessed_in_session("sess1")
+        self.assertEqual(len(results), 2)
+
+
+class TestDecayIntegration(unittest.TestCase):
+    """Test that decay properly increments failure_count and decreases confidence."""
+
+    def setUp(self) -> None:
+        self.tmpdir = tempfile.mkdtemp()
+        self.db_path = Path(self.tmpdir) / "test_learning.db"
+        self.db = LearningDB(self.db_path)
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_multiple_decays_accumulate(self) -> None:
+        lid = self.db.record("error", "multi_decay", "value", confidence=0.5)
+        self.db.decay(lid, amount=0.05)
+        self.db.decay(lid, amount=0.05)
+        self.db.decay(lid, amount=0.05)
+        row = self.db.get_by_id(lid)
+        assert row is not None
+        self.assertAlmostEqual(row["confidence"], 0.35)
+        self.assertEqual(row["failure_count"], 3)
+
+    def test_boost_then_decay_net_effect(self) -> None:
+        lid = self.db.record("error", "net_test", "value", confidence=0.5)
+        self.db.boost(lid, amount=0.15)  # -> 0.65, success=1
+        self.db.decay(lid, amount=0.10)  # -> 0.55, failure=1
+        row = self.db.get_by_id(lid)
+        assert row is not None
+        self.assertAlmostEqual(row["confidence"], 0.55)
+        self.assertEqual(row["success_count"], 1)
+        self.assertEqual(row["failure_count"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

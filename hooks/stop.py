@@ -15,6 +15,31 @@ sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
 
+# Marker file written by task_completed.py when a task succeeds
+_TASK_SUCCESS_PATH = Path("/tmp/autodidact_task_success.json")
+# Pending fix tracker written by post_tool_use.py
+_PENDING_FIX_PATH = Path("/tmp/autodidact_pending_fix.json")
+
+
+def _session_had_task_success(session_id: str) -> bool:
+    """Check if any task completed successfully during this session."""
+    if not _TASK_SUCCESS_PATH.exists():
+        return False
+    try:
+        data = json.loads(_TASK_SUCCESS_PATH.read_text())
+        return data.get("session_id") == session_id
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
+def _cleanup_session_markers() -> None:
+    """Remove temp marker files at session end."""
+    import contextlib
+
+    for path in (_TASK_SUCCESS_PATH, _PENDING_FIX_PATH):
+        with contextlib.suppress(OSError):
+            path.unlink(missing_ok=True)
+
 
 def main() -> None:
     try:
@@ -37,6 +62,15 @@ def main() -> None:
             if learning_ids:
                 db.time_decay(learning_ids)
 
+            # If no task completed in this session, apply a soft decay
+            # to learnings that were accessed (surfaced as context) but
+            # didn't contribute to a successful outcome
+            if not _session_had_task_success(session_id):
+                accessed = db.get_accessed_in_session(session_id)
+                for entry in accessed:
+                    db.decay(entry["id"], amount=0.05)
+
+        _cleanup_session_markers()
         db.close()
     except Exception:
         pass  # Graceful degradation

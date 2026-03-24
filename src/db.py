@@ -415,6 +415,29 @@ class LearningDB:
             project_path=project_path,
         )
 
+    def set_outcome(self, learning_id: int, outcome: str) -> None:
+        """Update the outcome field on a learning."""
+        self.conn.execute(
+            "UPDATE learnings SET outcome = ?, last_seen = ? WHERE id = ?",
+            (outcome, _now_iso(), learning_id),
+        )
+        self.conn.commit()
+
+    def get_accessed_in_session(self, session_id: str) -> list[dict[str, Any]]:
+        """Get learnings that were accessed (injected) during a session.
+
+        These are learnings whose access_count was incremented during
+        user_prompt_submit or session_start, identified by session_id.
+        """
+        rows = self.conn.execute(
+            """
+            SELECT * FROM learnings
+            WHERE session_id = ? AND access_count > 0
+            """,
+            (session_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_by_outcome(self, outcome: str, *, limit: int = 10) -> list[dict[str, Any]]:
         """Query learnings by outcome category."""
         rows = self.conn.execute(
