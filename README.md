@@ -56,7 +56,7 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 | [uv](https://docs.astral.sh/uv/) | Yes | Package/project management; hooks run through `uv run` |
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Yes | The AI coding tool this harness extends |
 | [git](https://git-scm.com/) | Yes | Version control, worktree isolation for fleet |
-| [gh](https://cli.github.com/) | For `/publish` | GitHub CLI for auto-publishing to thoughts repo |
+| [gh](https://cli.github.com/) | For PRs | GitHub CLI for pull requests |
 | [ruff](https://docs.astral.sh/ruff/) | For quality checks | Linting/formatting Python files on every edit |
 | [mypy](https://mypy-lang.org/) | Optional | Type checking Python files (runs if project has mypy config) |
 
@@ -97,16 +97,16 @@ The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` 
 | `/experiment` | Metric-driven autonomous optimization | [commands.md](docs/commands.md#experiment--metric-driven-optimization) |
 | `/loop` | Autonomous unattended execution (auto-selects mode) | [loop.md](docs/loop.md) |
 | `/learn` | Teach the system facts for future injection | [commands.md](docs/commands.md#learn--teach-the-system) |
-| `/review` | Code review with quality scoring | [commands.md](docs/commands.md#review-handoff-publish) |
-| `/handoff` | Compact session transfer document | [commands.md](docs/commands.md#review-handoff-publish) |
-| `/publish` | Publish docs to thoughts repo via PR | [commands.md](docs/commands.md#review-handoff-publish) |
+| `/review` | Code review with quality scoring | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
+| `/handoff` | Compact session transfer document | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
+| `/sync-thoughts` | Sync docs to ~/.planning/ for cross-project access | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
 
 ## Deep dives
 
 - [Command reference](docs/commands.md) — detailed usage and examples for every command
 - [Loop and autonomous execution](docs/loop.md) — exit detection, circuit breaker, auto-select mode
 - [Learning database](docs/learning-db.md) — knowledge lifecycle, confidence math, FTS5 queries
-- [Planning and persistence](docs/planning.md) — `.planning/` directory structure, thoughts repo publishing
+- [Planning and persistence](docs/planning.md) — `.planning/` directory structure, document syncing
 
 ## Tests
 

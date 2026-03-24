@@ -17,13 +17,16 @@ All planning state lives in the `.planning/` directory at the project root (or w
 '-- loop.log          # Loop output
 ```
 
-## Thoughts repo publishing
+## Syncing to centralized storage
 
-If `AUTODIDACT_THOUGHTS_REPO` is set, research and plan documents are auto-published to a GitHub thoughts repo via `/publish`:
+Use `/sync-thoughts` to copy research and plan documents to `~/.planning/` for cross-project access:
 
 ```bash
-export AUTODIDACT_THOUGHTS_REPO=your-org/your-thoughts-repo
+/sync-thoughts              # sync all docs from current project
+/sync-thoughts <file>       # sync a specific file
 ```
+
+Documents are copied (not moved) — local `.planning/` files are always preserved.
 
 ## Worktree isolation
 

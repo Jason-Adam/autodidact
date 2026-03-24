@@ -35,7 +35,7 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?learn\b", "learn"),
     (r"^/?(do\s+)?review\b", "review"),
     (r"^/?(do\s+)?handoff\b", "handoff"),
-    (r"^/?(do\s+)?publish\b", "publish"),
+    (r"^/?(do\s+)?sync.?thoughts\b", "sync-thoughts"),
     (r"^/?(do\s+)?forget\b", "forget"),
     (r"^/?(do\s+)?learn.?status\b", "learn_status"),
     (r"^/?(do\s+)?experiment\b", "experiment"),

@@ -71,10 +71,10 @@ See [loop.md](loop.md) for full details including exit detection, circuit breake
 
 User-taught knowledge starts at 0.7 confidence and is injected into future sessions when relevant.
 
-## `/review`, `/handoff`, `/publish`
+## `/review`, `/handoff`, `/sync-thoughts`
 
 ```
 /review              # code review with quality scoring
 /handoff             # compact session transfer document (<150 words)
-/publish <file>      # publish to thoughts repo via PR
+/sync-thoughts       # sync docs to ~/.planning/ for cross-project access
 ```
