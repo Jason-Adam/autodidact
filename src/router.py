@@ -34,6 +34,7 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?archon\b", "campaign"),  # legacy alias
     (r"^/?(do\s+)?learn\b", "learn"),
     (r"^/?(do\s+)?review\b", "review"),
+    (r"^/?(do\s+)?polish\b", "polish"),
     (r"^/?(do\s+)?handoff\b", "handoff"),
     (r"^/?(do\s+)?publish\b", "publish"),
     (r"^/?(do\s+)?forget\b", "forget"),
@@ -271,6 +272,14 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("check quality", 0.4),
         ("audit", 0.3),
         ("inspect", 0.3),
+    ],
+    "polish": [
+        ("polish", 0.6),
+        ("clean up", 0.4),
+        ("simplify", 0.4),
+        ("security review", 0.5),
+        ("fix issues", 0.3),
+        ("tidy", 0.3),
     ],
     "handoff": [
         ("handoff", 0.6),

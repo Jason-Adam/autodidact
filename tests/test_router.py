@@ -66,6 +66,16 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "plan")  # interview consolidated into plan
         self.assertEqual(r.tier, 0)
 
+    def test_polish_direct(self) -> None:
+        r = classify("polish")
+        self.assertEqual(r.skill, "polish")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_polish(self) -> None:
+        r = classify("/do polish the code")
+        self.assertEqual(r.skill, "polish")
+        self.assertEqual(r.tier, 0)
+
     def test_no_match(self) -> None:
         r = classify("build the widget")
         self.assertNotEqual(r.tier, 0)
@@ -108,6 +118,11 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
     def test_review_routes_to_review(self) -> None:
         r = classify("code review the changes")
         self.assertEqual(r.skill, "review")
+        self.assertEqual(r.tier, 2)
+
+    def test_polish_keyword_routes(self) -> None:
+        r = classify("clean up and simplify the module")
+        self.assertEqual(r.skill, "polish")
         self.assertEqual(r.tier, 2)
 
     def test_low_score_falls_through(self) -> None:
