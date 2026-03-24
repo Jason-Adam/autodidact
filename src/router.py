@@ -326,6 +326,41 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
 
 # ── Public API ──────────────────────────────────────────────────────────
 
+# Skills that are installed with the autodidact- prefix under ~/.claude/skills/.
+# The router returns fully-qualified names so Claude Code never confuses them
+# with project-scoped skills (e.g. crsdigital:create-plan vs autodidact-plan).
+_AUTODIDACT_SKILLS: frozenset[str] = frozenset(
+    {
+        "plan",
+        "run",
+        "fleet",
+        "campaign",
+        "learn",
+        "handoff",
+        "experiment",
+        "loop",
+        "polish",
+        "sync-thoughts",
+        "do",
+    }
+)
+
+# Signal values that are NOT real skills — never prefix these.
+# "direct" = execute inline, "classify" = LLM classification needed.
+_SIGNAL_VALUES: frozenset[str] = frozenset({"direct", "classify"})
+
+# Command-only entries (no corresponding autodidact- skill directory).
+# Dispatched as /command, not as a skill invocation.
+# "review", "forget", "learn_status" fall through here by exclusion.
+
+
+def _qualify_skill(name: str) -> str:
+    """Add the autodidact- prefix for installed skills, leave signals bare."""
+    if name in _AUTODIDACT_SKILLS:
+        return f"autodidact-{name}"
+    return name
+
+
 _PLAN_SKILL_TO_LOOP_MODE: dict[str, str] = {
     "direct": "run",
     "run": "run",
@@ -360,28 +395,36 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
 
     Tier 3 returns skill="classify" to signal that LLM classification
     is needed (handled by the /do skill markdown).
+
+    Skill names are returned with the ``autodidact-`` prefix so that
+    Claude Code resolves them unambiguously, even when project-scoped
+    skills (e.g. ``crsdigital:create-plan``) are also available.
     """
     # Tier 0: Pattern match
     result = _tier0_pattern_match(prompt)
     if result:
+        result.skill = _qualify_skill(result.skill)
         return result
 
     # Tier 1: Active state
     result = _tier1_active_state(cwd)
     if result:
+        result.skill = _qualify_skill(result.skill)
         return result
 
     # Tier 2: Keyword heuristic
     result = _tier2_keyword_heuristic(prompt)
     if result:
+        result.skill = _qualify_skill(result.skill)
         return result
 
     # Tier 2.5: Plan structure analysis
     result = _tier25_plan_analysis(cwd)
     if result:
+        result.skill = _qualify_skill(result.skill)
         return result
 
-    # Tier 3: Signal for LLM classification
+    # Tier 3: Signal for LLM classification (no prefix needed)
     return RouterResult(
         skill="classify",
         confidence=0.0,

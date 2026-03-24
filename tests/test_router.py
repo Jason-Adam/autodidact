@@ -13,88 +13,89 @@ from src.router import classify, select_loop_mode
 class TestTier0PatternMatch(unittest.TestCase):
     def test_interview_routes_to_plan(self) -> None:
         r = classify("/do interview")
-        self.assertEqual(r.skill, "plan")
+        self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 0)
 
     def test_research_routes_to_plan(self) -> None:
         r = classify("/do research")
-        self.assertEqual(r.skill, "plan")
+        self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 0)
 
     def test_direct_fleet(self) -> None:
         r = classify("fleet")
-        self.assertEqual(r.skill, "fleet")
+        self.assertEqual(r.skill, "autodidact-fleet")
         self.assertEqual(r.tier, 0)
 
     def test_do_prefix_run(self) -> None:
         r = classify("/do run refactor the DB")
-        self.assertEqual(r.skill, "run")
+        self.assertEqual(r.skill, "autodidact-run")
         self.assertEqual(r.tier, 0)
 
     def test_bare_run(self) -> None:
         r = classify("run")
-        self.assertEqual(r.skill, "run")
+        self.assertEqual(r.skill, "autodidact-run")
         self.assertEqual(r.tier, 0)
 
     def test_run_does_not_match_natural_language(self) -> None:
         """'run the tests' should NOT route to /run skill."""
         r = classify("run the tests")
-        self.assertNotEqual(r.skill, "run")
+        self.assertNotEqual(r.skill, "autodidact-run")
 
     def test_marshal_legacy_alias(self) -> None:
         r = classify("do marshal")
-        self.assertEqual(r.skill, "run")
+        self.assertEqual(r.skill, "autodidact-run")
         self.assertEqual(r.tier, 0)
 
     def test_campaign(self) -> None:
         r = classify("/do campaign")
-        self.assertEqual(r.skill, "campaign")
+        self.assertEqual(r.skill, "autodidact-campaign")
         self.assertEqual(r.tier, 0)
 
     def test_archon_legacy_alias(self) -> None:
         r = classify("archon")
-        self.assertEqual(r.skill, "campaign")
+        self.assertEqual(r.skill, "autodidact-campaign")
         self.assertEqual(r.tier, 0)
 
     def test_learn_status(self) -> None:
+        """learn_status is command-only, no autodidact- prefix."""
         r = classify("/do learn_status")
         self.assertEqual(r.skill, "learn_status")
         self.assertEqual(r.tier, 0)
 
     def test_case_insensitive(self) -> None:
         r = classify("INTERVIEW")
-        self.assertEqual(r.skill, "plan")  # interview consolidated into plan
+        self.assertEqual(r.skill, "autodidact-plan")  # interview consolidated into plan
         self.assertEqual(r.tier, 0)
 
     def test_polish_direct(self) -> None:
         r = classify("polish")
-        self.assertEqual(r.skill, "polish")
+        self.assertEqual(r.skill, "autodidact-polish")
         self.assertEqual(r.tier, 0)
 
     def test_do_polish(self) -> None:
         r = classify("/do polish the code")
-        self.assertEqual(r.skill, "polish")
+        self.assertEqual(r.skill, "autodidact-polish")
         self.assertEqual(r.tier, 0)
 
     def test_loop_routes_to_loop(self) -> None:
         r = classify("/do loop")
-        self.assertEqual(r.skill, "loop")
+        self.assertEqual(r.skill, "autodidact-loop")
         self.assertEqual(r.tier, 0)
 
     def test_bare_loop(self) -> None:
         r = classify("loop")
-        self.assertEqual(r.skill, "loop")
+        self.assertEqual(r.skill, "autodidact-loop")
         self.assertEqual(r.tier, 0)
 
     def test_loop_with_mode(self) -> None:
         r = classify("/do loop fleet")
-        self.assertEqual(r.skill, "loop")
+        self.assertEqual(r.skill, "autodidact-loop")
         self.assertEqual(r.tier, 0)
 
     def test_loop_does_not_match_natural_language(self) -> None:
         """'loop through the array' should NOT route to /loop skill."""
         r = classify("loop through the array")
-        self.assertNotEqual(r.skill, "loop")
+        self.assertNotEqual(r.skill, "autodidact-loop")
 
     def test_no_match(self) -> None:
         r = classify("build the widget")
@@ -115,7 +116,7 @@ class TestTier1ActiveState(unittest.TestCase):
                 )
             )
             r = classify("continue working", cwd=tmpdir)
-            self.assertEqual(r.skill, "campaign")
+            self.assertEqual(r.skill, "autodidact-campaign")
             self.assertEqual(r.tier, 1)
 
     def test_no_active_state(self) -> None:
@@ -127,22 +128,23 @@ class TestTier1ActiveState(unittest.TestCase):
 class TestTier2KeywordHeuristic(unittest.TestCase):
     def test_parallel_routes_to_fleet(self) -> None:
         r = classify("execute these tasks in parallel across worktrees")
-        self.assertEqual(r.skill, "fleet")
+        self.assertEqual(r.skill, "autodidact-fleet")
         self.assertEqual(r.tier, 2)
 
     def test_plan_routes_to_plan(self) -> None:
         r = classify("create an implementation plan for the auth feature")
-        self.assertEqual(r.skill, "plan")
+        self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 2)
 
     def test_review_routes_to_review(self) -> None:
+        """review is command-only, no autodidact- prefix."""
         r = classify("code review the changes")
         self.assertEqual(r.skill, "review")
         self.assertEqual(r.tier, 2)
 
     def test_polish_keyword_routes(self) -> None:
         r = classify("clean up and simplify the module")
-        self.assertEqual(r.skill, "polish")
+        self.assertEqual(r.skill, "autodidact-polish")
         self.assertEqual(r.tier, 2)
 
     def test_low_score_falls_through(self) -> None:
@@ -183,7 +185,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
                 ),
             )
             r = classify("implement the auth refactor", cwd=tmpdir)
-            self.assertEqual(r.skill, "run")
+            self.assertEqual(r.skill, "autodidact-run")
             self.assertIn("3 sequential phases", r.reasoning)
 
     def test_independent_phases_route_fleet(self) -> None:
@@ -201,7 +203,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
                 ),
             )
             r = classify("implement the multi-module update", cwd=tmpdir)
-            self.assertEqual(r.skill, "fleet")
+            self.assertEqual(r.skill, "autodidact-fleet")
             self.assertIn("independent phases", r.reasoning)
 
     def test_large_plan_routes_campaign(self) -> None:
@@ -215,7 +217,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
                 )
             self._write_plan(tmpdir, f"## Plan: Big migration\n{phases}")
             r = classify("implement the migration", cwd=tmpdir)
-            self.assertEqual(r.skill, "campaign")
+            self.assertEqual(r.skill, "autodidact-campaign")
             self.assertIn("7 phases", r.reasoning)
 
     def test_no_plan_falls_through(self) -> None:
@@ -251,7 +253,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
                 "### Phase 3: C\n- [ ] Edit `src/c.py`\n"
             )
             r = classify("implement the plan", cwd=tmpdir)
-            self.assertEqual(r.skill, "run")
+            self.assertEqual(r.skill, "autodidact-run")
             self.assertIn("new.md", r.reasoning)
 
 

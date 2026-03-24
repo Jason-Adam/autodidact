@@ -26,25 +26,27 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 2. **If classification reached Tier 3** (no deterministic match), classify the user's intent using this complexity rubric:
 
    **Non-orchestration skills** (match these first):
-   - `experiment` — User wants iterative optimization against a metric
-   - `plan` — User needs to clarify, research, or plan (all three are one pipeline)
-   - `review` — User wants code review
-   - `handoff` — User wants to create a session transfer document
-   - `learn` — User wants to teach autodidact something
+   - `autodidact-experiment` — User wants iterative optimization against a metric
+   - `autodidact-plan` — User needs to clarify, research, or plan (all three are one pipeline)
+   - `review` — User wants code review (command-only, no autodidact- prefix)
+   - `autodidact-handoff` — User wants to create a session transfer document
+   - `autodidact-learn` — User wants to teach autodidact something
 
    **Orchestration skills** (use the complexity matrix below):
    | Signal | Route | Confidence cue |
    |---|---|---|
    | Single action, no decomposition needed | `direct` | "I can do this in one tool call" |
-   | 2-5 sequential steps, completable in one session | `run` | "This needs phases but I won't run out of context" |
-   | Independent units touching different files | `fleet` | "These can run in parallel without conflicts" |
-   | Too large for one session, or user mentions multi-day/multi-session | `campaign` | "This will exhaust context or span multiple sessions" |
+   | 2-5 sequential steps, completable in one session | `autodidact-run` | "This needs phases but I won't run out of context" |
+   | Independent units touching different files | `autodidact-fleet` | "These can run in parallel without conflicts" |
+   | Too large for one session, or user mentions multi-day/multi-session | `autodidact-campaign` | "This will exhaust context or span multiple sessions" |
 
-   **Decision priority**: `direct` > `fleet` (if parallelizable) > `run` (if sequential) > `campaign` (if scope exceeds one session). Prefer simpler orchestration when uncertain.
+   **Decision priority**: `direct` > `autodidact-fleet` (if parallelizable) > `autodidact-run` (if sequential) > `autodidact-campaign` (if scope exceeds one session). Prefer simpler orchestration when uncertain.
+
+   **IMPORTANT**: Always use the `autodidact-` prefix for skill names to ensure autodidact skills are invoked, not project-scoped alternatives.
 
 3. **For `direct` classification**: Just do the task. No orchestration overhead.
 
-4. **For all others**: Invoke the appropriate `/skill` command, passing the user's original request.
+4. **For all others**: Invoke the skill by its fully-qualified `autodidact-*` name, passing the user's original request.
 
 5. **Record the routing decision** in the learning DB for future pattern improvement:
    ```
