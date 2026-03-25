@@ -93,6 +93,8 @@ def _extract_observation(
 
 # Cache for tool availability (per-session via file)
 _STATE_DIR = Path.home() / ".claude" / "autodidact"
+with contextlib.suppress(OSError):
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
 _TOOL_CACHE_PATH = _STATE_DIR / "tool_cache.json"
 # Tracks the last known-error fix we surfaced, so we can decay if it didn't help
 _PENDING_FIX_PATH = _STATE_DIR / "pending_fix.json"
@@ -306,7 +308,7 @@ def main() -> None:
     tool_input = hook_input.get("tool_input", {})
     tool_output = hook_input.get("tool_output", "")
     is_error = hook_input.get("is_error", False)
-    session_id = hook_input.get("session_id", "")
+    session_id = hook_input.get("session_id") or hook_input.get("sessionId") or ""
     cwd = hook_input.get("cwd", "")
     project_path = resolve_main_repo(cwd) if cwd else ""
 

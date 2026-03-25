@@ -15,10 +15,11 @@ sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
 
+_STATE_DIR = Path.home() / ".claude" / "autodidact"
 # Marker file written by task_completed.py when a task succeeds
-_TASK_SUCCESS_PATH = Path("/tmp/autodidact_task_success.json")
+_TASK_SUCCESS_PATH = _STATE_DIR / "task_success.json"
 # Pending fix tracker written by post_tool_use.py
-_PENDING_FIX_PATH = Path("/tmp/autodidact_pending_fix.json")
+_PENDING_FIX_PATH = _STATE_DIR / "pending_fix.json"
 
 
 def _session_had_task_success(session_id: str) -> bool:

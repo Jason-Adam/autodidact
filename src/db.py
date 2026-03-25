@@ -226,9 +226,9 @@ class LearningDB:
             """UPDATE learnings
             SET access_count = access_count + 1,
                 last_seen = ?,
-                last_accessed_session = CASE WHEN ? != '' THEN ? ELSE last_accessed_session END
+                last_accessed_session = ?
             WHERE id = ?""",
-            (_now_iso(), session_id, session_id, learning_id),
+            (_now_iso(), session_id, learning_id),
         )
         self.conn.commit()
 

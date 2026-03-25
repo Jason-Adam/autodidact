@@ -27,7 +27,7 @@ def main() -> None:
         hook_input = {}
 
     prompt = hook_input.get("userMessage", "")
-    session_id = hook_input.get("session_id", "")
+    session_id = hook_input.get("session_id") or hook_input.get("sessionId") or ""
 
     if not prompt or not prompt.strip():
         json.dump({}, sys.stdout)

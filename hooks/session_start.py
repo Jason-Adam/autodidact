@@ -34,7 +34,7 @@ def main() -> None:
 
     messages: list[str] = []
     cwd = hook_input.get("cwd", "")
-    session_id = hook_input.get("session_id", "")
+    session_id = hook_input.get("session_id") or hook_input.get("sessionId") or ""
     project_path = resolve_main_repo(cwd) if cwd else ""
 
     try:
