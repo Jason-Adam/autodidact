@@ -12,4 +12,6 @@ If the user provided arguments after `/learn`, treat them as knowledge to record
 
 If the user wants to query (e.g., `/learn query <terms>`), search the FTS5 index and display results.
 
+If the first argument is `mine` (e.g., `/learn mine /path/to/project`), call `mine_and_record()` from `src.session_miner` with the given project path and the active LearningDB. Display the returned summary dict showing sessions_scanned, commands_found, patterns_found, and learnings_recorded.
+
 Use the autodidact-learn skill for the full protocol.
