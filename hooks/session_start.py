@@ -16,6 +16,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
+from src.confidence import INJECTION_MIN_CONFIDENCE
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
 from src.rtk_integration import (
@@ -84,16 +85,34 @@ def main() -> None:
             with contextlib.suppress(OSError):
                 last_discover_path.write_text(today)
 
-        # Inject top learnings for current project
-        learnings = db.get_top_learnings(limit=10, project_path=project_path)
-        if learnings:
-            lines = ["AUTODIDACT LEARNINGS (top confidence):"]
-            for entry in learnings:
-                db.increment_access(entry["id"])
-                lines.append(
-                    f"  [{entry['topic']}/{entry['key']}] "
-                    f"{entry['value']} (conf: {entry['confidence']:.2f})"
-                )
+        # Inject progressive learnings for current project
+        learnings = db.get_progressive_learnings(
+            token_budget=2000,
+            project_path=project_path,
+            min_confidence=INJECTION_MIN_CONFIDENCE,
+        )
+
+        core = learnings.get("core", [])
+        relevant = learnings.get("relevant", [])
+
+        if core or relevant:
+            lines = []
+            if core:
+                lines.append("AUTODIDACT LEARNINGS (high confidence):")
+                for entry in core:
+                    db.increment_access(entry["id"])
+                    lines.append(
+                        f"  [{entry['topic']}/{entry['key']}] "
+                        f"{entry['value']} (conf: {entry['confidence']:.2f})"
+                    )
+            if relevant:
+                lines.append("\nPOSSIBLY RELEVANT:")
+                for entry in relevant:
+                    db.increment_access(entry["id"])
+                    lines.append(
+                        f"  [{entry['topic']}/{entry['key']}] "
+                        f"{entry['value']} (conf: {entry['confidence']:.2f})"
+                    )
             messages.append("\n".join(lines))
 
         # Check for active campaigns

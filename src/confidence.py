@@ -23,6 +23,8 @@ PRUNE_MAX_AGE_DAYS = 90
 INJECTION_MIN_CONFIDENCE = 0.3
 INJECTION_LIMIT = 5
 
+OBSERVATION_INITIAL_CONFIDENCE = 0.25  # Below injection floor until boosted
+
 
 # ── Pure Functions ──────────────────────────────────────────────────────
 

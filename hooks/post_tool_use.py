@@ -24,9 +24,71 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from src.confidence import initial_confidence_for_outcome
+from src.confidence import OBSERVATION_INITIAL_CONFIDENCE, initial_confidence_for_outcome
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
+
+# ── Observation Capture ──────────────────────────────────────────────────
+
+_OBSERVATION_MIN_OUTPUT_LEN = 50
+_OBSERVATION_MAX_VALUE_LEN = 300
+_OBSERVATION_TOOLS = ("Bash",)
+
+_SKIP_COMMAND_PREFIXES = (
+    "cat ",
+    "echo ",
+    "ls ",
+    "cd ",
+    "pwd",
+    "head ",
+    "tail ",
+    "wc ",
+    "which ",
+    "type ",
+    "file ",
+    "stat ",
+    "rtk ",
+)
+
+
+def _extract_observation(
+    tool_name: str,
+    tool_input: dict,
+    tool_output: str,
+) -> dict | None:
+    """Extract a condensed observation from a successful tool call.
+
+    Returns {"key": str, "value": str, "tags": str} or None if not worth recording.
+    """
+    if tool_name != "Bash":
+        return None
+
+    command = tool_input.get("command", "")
+    if not command:
+        return None
+
+    # Skip noisy read-only commands
+    cmd_stripped = command.lstrip()
+    for prefix in _SKIP_COMMAND_PREFIXES:
+        if cmd_stripped.startswith(prefix):
+            return None
+
+    # Condense output
+    condensed = " ".join(tool_output.split())[:_OBSERVATION_MAX_VALUE_LEN]
+
+    # Generate deterministic key
+    sig = hashlib.md5((command + condensed).encode()).hexdigest()[:12]
+    key = f"obs_{sig}"
+
+    # Tags: tool name + first word of command
+    first_word = cmd_stripped.split()[0] if cmd_stripped.split() else "unknown"
+    tags = f"bash {first_word}"
+
+    # Value: command + condensed result
+    value = f"Command: {command[:100]}\nResult: {condensed[:200]}"
+
+    return {"key": key, "value": value, "tags": tags}
+
 
 # Cache for tool availability (per-session via file)
 _TOOL_CACHE_PATH = Path("/tmp/autodidact_tool_cache.json")
@@ -328,6 +390,28 @@ def main() -> None:
                             project_path=project_path,
                             session_id=session_id,
                         )
+
+        # Observation capture (broad, confidence-gated)
+        if (
+            not is_error
+            and tool_name in _OBSERVATION_TOOLS
+            and tool_output
+            and len(tool_output) >= _OBSERVATION_MIN_OUTPUT_LEN
+        ):
+            obs = _extract_observation(tool_name, tool_input, tool_output)
+            if obs:
+                db.record(
+                    topic="observation",
+                    key=obs["key"],
+                    value=obs["value"],
+                    category="observation",
+                    confidence=OBSERVATION_INITIAL_CONFIDENCE,
+                    tags=obs["tags"],
+                    source="observation",
+                    project_path=project_path,
+                    session_id=session_id,
+                    outcome="interesting",
+                )
 
         db.close()
     except Exception:
