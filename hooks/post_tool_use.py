@@ -11,12 +11,14 @@ Responsibilities:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
@@ -84,6 +86,49 @@ def _clear_pending_fix() -> None:
 
     with contextlib.suppress(OSError):
         _PENDING_FIX_PATH.unlink(missing_ok=True)
+
+
+_TEE_MAX_BYTES = 1024 * 1024  # 1MB
+_TEE_MAX_FILES = 20
+_TEE_MIN_BYTES = 500
+
+
+def _tee_output(tool_name: str, tool_output: str, cwd: str) -> str | None:
+    """Save full tool output to disk on error; return a hint string or None."""
+    if len(tool_output) < _TEE_MIN_BYTES:
+        return None
+
+    tee_dir = Path(cwd) / ".planning" / "tee"
+
+    with contextlib.suppress(OSError):
+        tee_dir.mkdir(parents=True, exist_ok=True)
+        if tee_dir.is_symlink():
+            return None
+
+        # Sanitize tool_name to prevent path traversal
+        safe_name = re.sub(r"[^\w\-]", "_", tool_name)
+
+        # Snapshot existing files BEFORE writing (avoids self-deletion on rotation)
+        existing = sorted(tee_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
+
+        # Write the tee file
+        epoch = int(time.time())
+        filename = f"{epoch}_{safe_name}.log"
+        tee_path = tee_dir / filename
+        content = tool_output
+        if len(content.encode()) > _TEE_MAX_BYTES:
+            content = tool_output.encode()[:_TEE_MAX_BYTES].decode("utf-8", errors="replace")
+        tee_path.write_text(content)
+        tee_path.chmod(0o600)
+
+        # Rotate: keep only the last _TEE_MAX_FILES files (from pre-write snapshot)
+        while len(existing) >= _TEE_MAX_FILES:
+            with contextlib.suppress(OSError):
+                existing.pop(0).unlink()
+
+        return f"[full output: .planning/tee/{filename}]"
+
+    return None
 
 
 def _normalize_error(error_text: str) -> str:
@@ -215,6 +260,9 @@ def main() -> None:
 
         # Error learning
         if is_error and tool_output:
+            tee_hint = _tee_output(tool_name, str(tool_output), cwd)
+            if tee_hint:
+                messages.append(tee_hint)
             error_text = str(tool_output)
             signature = _normalize_error(error_text)
             sig_hash = hashlib.md5(signature.encode()).hexdigest()[:12]

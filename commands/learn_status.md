@@ -25,3 +25,4 @@ Present the results in a readable format:
 2. **Top Learnings**: Highest confidence items (topic, key, value, confidence)
 3. **Graduation Candidates**: Items ready to be promoted (confidence ≥ 0.9, observations ≥ 5)
 4. **Routing Gaps**: Recent unmatched prompts (if any)
+5. **Token Economics** — when RTK is installed: total commands, total saved tokens, avg savings %, estimated $ saved (from `rtk gain --daily`). When not installed: "Install RTK for token analytics"
