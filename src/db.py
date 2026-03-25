@@ -261,6 +261,53 @@ class LearningDB:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_progressive_learnings(
+        self,
+        *,
+        token_budget: int = 2000,
+        project_path: str = "",
+        topic_hint: str = "",
+        min_confidence: float = 0.3,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Token-budgeted progressive learning injection.
+
+        Returns two tiers:
+          - "core": highest-confidence learnings (always included first)
+          - "relevant": FTS5 topic-matched learnings (fills remaining budget)
+
+        Token estimation: len(value) // 4 (rough chars-to-tokens).
+        """
+        # Overfetch for selection pool
+        pool = self.get_top_learnings(limit=20, project_path=project_path)
+        pool = [e for e in pool if e["confidence"] >= min_confidence]
+
+        core: list[dict[str, Any]] = []
+        tokens_used = 0
+        half_budget = token_budget // 2
+
+        for entry in pool:
+            entry_tokens = len(entry["value"]) // 4 + 20
+            if tokens_used + entry_tokens > half_budget or len(core) >= 7:
+                break
+            core.append(entry)
+            tokens_used += entry_tokens
+
+        # Topic-relevant tier via FTS5
+        relevant: list[dict[str, Any]] = []
+        if topic_hint:
+            core_ids = {e["id"] for e in core}
+            fts_results = self.query_fts(topic_hint, limit=10, min_confidence=min_confidence)
+            for entry in fts_results:
+                if entry["id"] in core_ids:
+                    continue
+                entry_tokens = len(entry["value"]) // 4 + 20
+                if tokens_used + entry_tokens > token_budget:
+                    break
+                relevant.append(entry)
+                tokens_used += entry_tokens
+
+        return {"core": core, "relevant": relevant}
+
     # ── Confidence ──────────────────────────────────────────────────────
 
     def boost(self, learning_id: int, amount: float = 0.15) -> None:

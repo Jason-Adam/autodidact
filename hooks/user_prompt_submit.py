@@ -16,6 +16,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
+from src.confidence import INJECTION_MIN_CONFIDENCE
 from src.db import LearningDB
 
 
@@ -37,7 +38,7 @@ def main() -> None:
         db = LearningDB()
 
         # FTS5 query for relevant learnings
-        learnings = db.query_fts(prompt, limit=5, min_confidence=0.3)
+        learnings = db.query_fts(prompt, limit=5, min_confidence=INJECTION_MIN_CONFIDENCE)
         if learnings:
             lines = ["RELEVANT LEARNINGS:"]
             for entry in learnings:

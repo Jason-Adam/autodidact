@@ -474,5 +474,68 @@ class TestDecayIntegration(unittest.TestCase):
         self.assertEqual(row["failure_count"], 1)
 
 
+class TestProgressiveLearnings(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmpdir = tempfile.mkdtemp()
+        self.db_path = Path(self.tmpdir) / "test_learning.db"
+        self.db = LearningDB(self.db_path)
+
+    def tearDown(self) -> None:
+        self.db.close()
+
+    def test_empty_db_returns_empty_tiers(self) -> None:
+        result = self.db.get_progressive_learnings()
+        self.assertEqual(result["core"], [])
+        self.assertEqual(result["relevant"], [])
+
+    def test_confidence_floor_filters(self) -> None:
+        self.db.record("a", "low", "value", confidence=0.1)
+        self.db.record("b", "high", "value", confidence=0.5)
+        result = self.db.get_progressive_learnings(min_confidence=0.3)
+        self.assertEqual(len(result["core"]), 1)
+        self.assertEqual(result["core"][0]["key"], "high")
+
+    def test_budget_exhaustion(self) -> None:
+        # Each entry ~20 overhead + value tokens. With tiny budget, should cap early.
+        for i in range(10):
+            self.db.record(f"t{i}", f"k{i}", "x" * 200, confidence=0.8)
+        result = self.db.get_progressive_learnings(token_budget=200)
+        # Half budget = 100 tokens. Each entry = 200//4+20 = 70 tokens. Max 1 entry.
+        self.assertLessEqual(len(result["core"]), 2)
+
+    def test_max_seven_core_entries(self) -> None:
+        for i in range(15):
+            self.db.record(f"t{i}", f"k{i}", "short", confidence=0.9)
+        result = self.db.get_progressive_learnings(token_budget=10000)
+        self.assertLessEqual(len(result["core"]), 7)
+
+    def test_graduated_excluded(self) -> None:
+        lid = self.db.record("a", "grad", "value", confidence=0.95)
+        self.db.conn.execute(
+            "UPDATE learnings SET graduated_to = 'CLAUDE.md', observation_count = 10 WHERE id = ?",
+            (lid,),
+        )
+        self.db.conn.commit()
+        result = self.db.get_progressive_learnings()
+        self.assertEqual(len(result["core"]), 0)
+
+    def test_deduplication_between_tiers(self) -> None:
+        self.db.record("search", "overlap", "search term alpha", confidence=0.8)
+        result = self.db.get_progressive_learnings(
+            topic_hint="search term alpha", min_confidence=0.3
+        )
+        # The same entry should not appear in both tiers
+        core_ids = {e["id"] for e in result["core"]}
+        relevant_ids = {e["id"] for e in result["relevant"]}
+        self.assertEqual(core_ids & relevant_ids, set())
+
+    def test_token_budget_respected(self) -> None:
+        for i in range(10):
+            self.db.record(f"t{i}", f"k{i}", "x" * 400, confidence=0.8)
+        result = self.db.get_progressive_learnings(token_budget=500)
+        total_tokens = sum(len(e["value"]) // 4 + 20 for e in result["core"] + result["relevant"])
+        self.assertLessEqual(total_tokens, 500)
+
+
 if __name__ == "__main__":
     unittest.main()
