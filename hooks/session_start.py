@@ -17,6 +17,7 @@ sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
+from src.rtk_integration import get_rtk_savings_summary, is_rtk_installed
 
 
 def main() -> None:
@@ -43,6 +44,22 @@ def main() -> None:
             prune_marker.write_text(today)
             if deleted > 0:
                 messages.append(f"Pruned {deleted} stale learning(s).")
+
+        # RTK token savings
+        if is_rtk_installed():
+            rtk_summary = get_rtk_savings_summary(project_path)
+            if rtk_summary:
+                total_cmds = rtk_summary.get("total_commands", 0)
+                saved = rtk_summary.get("tokens_saved", 0)
+                pct = rtk_summary.get("savings_percent", 0)
+                messages.append(
+                    f"RTK: {total_cmds} commands, {saved:,} tokens saved ({pct}%), last 7 days"
+                )
+        else:
+            messages.append(
+                "RTK saves 60-90% tokens on CLI output. "
+                "Install: brew install patrickszmukowiak/tap/rtk"
+            )
 
         # Inject top learnings for current project
         learnings = db.get_top_learnings(limit=10, project_path=project_path)
