@@ -17,14 +17,13 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 ## Architecture
 
 ```
-                        ┌──────────────────────────────────┐
-                        │  /do  (cost-ascending router)    │
-                        │  T0: pattern → T1: state →       │
-                        │  T2: keyword → T2.5: plan → T3:  │
-                        │  LLM                              │
-                        └──────────┬───────────────────────┘
-                                   │
-     ┌───────┬───────┬───┴─────┬───────┬──────────┬────────┬───────┬─────────┐
+                  ┌─────────────────────────────────────────────┐
+                  │  /do  (cost-ascending router)               │
+                  │  T0: pattern → T1: state → T2: keyword →    │
+                  │  T2.5: plan structure → T3: LLM             │
+                  └──────────────────────┬──────────────────────┘
+                                        │
+     ┌───────┬───────┬──────┬───────┬───┴──────┬────────┬───────┬─────────┐
      ▼       ▼       ▼        ▼       ▼          ▼        ▼       ▼         ▼
    /plan   /run  /campaign /fleet /experiment /polish  /learn  /forget  /learn_status
   Clarify  single  multi   parallel  metric   review   teach   decay    confidence

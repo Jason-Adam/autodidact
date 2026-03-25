@@ -18,7 +18,7 @@ Autodidact is a self-teaching AI harness for Claude Code. It is NOT a traditiona
 - **Python stdlib only** — no third-party dependencies in src/ or hooks/
 - **Global install** — everything symlinks to ~/.claude/, learning DB at ~/.claude/autodidact/learning.db
 - **FTS5 for knowledge** — all learning queries go through SQLite FTS5 full-text search
-- **Cost-ascending router** — /do resolves at cheapest tier possible (pattern → state → keyword → LLM)
+- **Cost-ascending router** — /do resolves at cheapest tier possible (pattern → state → keyword → plan structure → LLM)
 - **5-section skills** — Identity, Orientation, Protocol, Quality Gates, Exit Protocol
 - **HANDOFF blocks** — <150 words, 3-5 bullets between skills/agents
 - **Document persistence** — research and plan outputs saved to `.planning/{research|plans}/`, synced to `~/.planning/` via `/sync-thoughts` for cross-project access
@@ -27,12 +27,12 @@ Autodidact is a self-teaching AI harness for Claude Code. It is NOT a traditiona
 ## Testing
 
 ```bash
-python3 -m unittest discover -s tests -v
+uv run python3 -m pytest tests/ -v
 ```
 
 ## Installing
 
 ```bash
-python3 install.py          # Install globally
-python3 install.py --uninstall  # Remove
+./install              # Install globally
+./install --uninstall  # Remove
 ```
