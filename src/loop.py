@@ -170,13 +170,17 @@ class LoopRunner:
 
         phase = self.circuit_breaker.current_phase
         if phase == BreakerPhase.HALF_OPEN:
-            parts.append(build_assessment_prompt())
+            # Assessment prompt is a structured contract — exempt from 500-char cap
+            assessment = build_assessment_prompt()
             if self.last_assessment and self.last_assessment.should_pivot:
-                parts.append(
-                    "PIVOT: Your previous approach scored low viability. "
+                assessment += (
+                    " PIVOT: Your previous approach scored low viability. "
                     "Change strategy before continuing."
                 )
-        elif phase != BreakerPhase.CLOSED:
+            base = " ".join(parts)[:200]
+            return f"{base} {assessment}"
+
+        if phase != BreakerPhase.CLOSED:
             parts.append(f"Circuit breaker: {phase.value}.")
 
         if self._last_analysis and self._last_analysis.work_summary:

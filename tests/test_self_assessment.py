@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 
+from src.interview import DimensionScore
 from src.self_assessment import (
     ASSESSMENT_DIMENSIONS,
     AssessmentResult,
@@ -59,6 +60,12 @@ class TestParseAssessmentBlock(unittest.TestCase):
         result = parse_assessment_block(text)
         assert result is not None
         assert len(result) == 2
+
+    def test_parses_block_with_crlf_line_endings(self):
+        text = "---SELF_ASSESSMENT---\r\nblocker_id: 0.5\r\n---END_SELF_ASSESSMENT---"
+        result = parse_assessment_block(text)
+        assert result is not None
+        assert result["blocker_id"] == "0.5"
 
 
 class TestScoreAssessment(unittest.TestCase):
@@ -137,8 +144,6 @@ class TestScoreAssessment(unittest.TestCase):
 
 class TestAssessmentResult(unittest.TestCase):
     def test_should_pivot_when_approach_low(self):
-        from src.interview import DimensionScore
-
         scores = [
             DimensionScore("approach_viability", 0.3, 0.30),
             DimensionScore("blocker_id", 0.8, 0.35),
@@ -147,8 +152,6 @@ class TestAssessmentResult(unittest.TestCase):
         assert result.should_pivot is True
 
     def test_should_not_pivot_when_approach_high(self):
-        from src.interview import DimensionScore
-
         scores = [
             DimensionScore("approach_viability", 0.8, 0.30),
             DimensionScore("blocker_id", 0.8, 0.35),
@@ -157,8 +160,6 @@ class TestAssessmentResult(unittest.TestCase):
         assert result.should_pivot is False
 
     def test_should_not_pivot_when_no_approach_dimension(self):
-        from src.interview import DimensionScore
-
         scores = [DimensionScore("blocker_id", 0.8, 0.35)]
         result = AssessmentResult(scores=scores, overall_clarity=0.8)
         assert result.should_pivot is False

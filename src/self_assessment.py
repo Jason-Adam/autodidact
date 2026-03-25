@@ -27,7 +27,7 @@ ASSESSMENT_DIMENSIONS: list[tuple[str, float]] = [
 PIVOT_THRESHOLD = 0.5
 
 _BLOCK_RE = re.compile(
-    r"---SELF_ASSESSMENT---\s*\n(.*?)\n\s*---END_SELF_ASSESSMENT---",
+    r"---SELF_ASSESSMENT---\s*\r?\n(.*?)\r?\n\s*---END_SELF_ASSESSMENT---",
     re.DOTALL,
 )
 
