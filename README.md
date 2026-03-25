@@ -11,24 +11,24 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 - **Orchestrates complex work** — three tiers of orchestration: `/run` (single-session), `/campaign` (multi-session), `/fleet` (parallel git worktrees)
 - **Experiments autonomously** — `/experiment` runs a metric-driven THINK → TEST → REFLECT loop that hypothesizes changes, measures impact, keeps improvements, and reverts regressions
 - **Runs unattended** — `/loop` drives any execution mode autonomously with intelligent exit detection, progress tracking, and [auto-selects the right orchestrator](docs/loop.md#auto-select-mode) based on plan structure
-- **Routes cheaply** — a cost-ascending `/do` router resolves most requests with zero LLM tokens (pattern match → active state → keyword heuristic) before falling back to classification
+- **Routes cheaply** — a cost-ascending `/do` router resolves most requests with zero LLM tokens (pattern match → active state → keyword heuristic → plan structure) before falling back to LLM classification
 - **Checks quality per-edit** — hooks run ruff/mypy on Python files and eslint on JavaScript files after every edit, feeding results back into the learning DB
 
 ## Architecture
 
 ```
-                        ┌──────────────────────────────────┐
-                        │  /do  (cost-ascending router)    │
-                        │  T0: pattern → T1: state →       │
-                        │  T2: keyword → T3: LLM           │
-                        └──────────┬───────────────────────┘
-                                   │
-         ┌──────────┬──────────┬───┴──────┬──────────┬──────────┬──────────┐
-         ▼          ▼          ▼          ▼          ▼          ▼          ▼
-      /plan      /run     /campaign   /fleet   /experiment /review   /learn
-    Clarify →   single     multi      parallel   metric    quality   teach &
-    Research →  session    session    worktree   driven    scoring   query DB
-    Design                                       optimize
+                  ┌─────────────────────────────────────────────┐
+                  │  /do  (cost-ascending router)               │
+                  │  T0: pattern → T1: state → T2: keyword →    │
+                  │  T2.5: plan structure → T3: LLM             │
+                  └──────────────────────┬──────────────────────┘
+                                        │
+     ┌───────┬───────┬──────┬───────┬───┴──────┬────────┬───────┬─────────┐
+     ▼       ▼       ▼        ▼       ▼          ▼        ▼       ▼         ▼
+   /plan   /run  /campaign /fleet /experiment /polish  /learn  /forget  /learn_status
+  Clarify  single  multi   parallel  metric   review   teach   decay    confidence
+  Research session session worktree  driven   + fix    & query  & drop   inventory
+  Design                             optimize
 
          ┌──────────────────────────────────────────────────────┐
          │  /loop  (autonomous driver)                          │
@@ -42,11 +42,11 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 
 | Layer | Count | Description |
 |-------|-------|-------------|
-| **Core library** | 18 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness |
+| **Core library** | 20 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner |
 | **Hooks** | 8 | Python scripts on Claude Code lifecycle events (session start, tool use, compaction, stop) |
 | **Skills** | 11 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
-| **Agents** | 10 | Specialized personas: interviewer, fleet-worker, quality-scorer, 6 research agents, python-engineer |
-| **Commands** | 13 | User-facing slash commands that invoke skills |
+| **Agents** | 12 | Specialized personas: interviewer, fleet-worker, quality-scorer, python-engineer, code-reviewer, code-simplifier, security-reviewer, and 5 research agents |
+| **Commands** | 14 | User-facing slash commands that invoke skills |
 
 ## Prerequisites
 
@@ -100,7 +100,10 @@ The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` 
 | `/experiment` | Metric-driven autonomous optimization | [commands.md](docs/commands.md#experiment--metric-driven-optimization) |
 | `/loop` | Autonomous unattended execution (auto-selects mode) | [loop.md](docs/loop.md) |
 | `/learn` | Teach the system facts for future injection | [commands.md](docs/commands.md#learn--teach-the-system) |
+| `/polish` | Parallel code review, security review, and simplification | [commands.md](docs/commands.md#polish--parallel-code-quality) |
 | `/review` | Code review with quality scoring | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
+| `/forget` | Decay or remove learnings from the database | [commands.md](docs/commands.md#forget--decay-learnings) |
+| `/learn_status` | Confidence stats and knowledge inventory | [commands.md](docs/commands.md#learn_status--knowledge-inventory) |
 | `/handoff` | Compact session transfer document | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
 | `/sync-thoughts` | Sync docs to ~/.planning/ for cross-project access | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
 
@@ -117,7 +120,7 @@ The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` 
 uv run python3 -m pytest tests/ -v
 ```
 
-227 tests covering the learning DB, confidence math, router classification, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, experiment state management, convergence detection, and fitness expression evaluation.
+355 tests covering the learning DB, confidence math, router classification, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
 
 ## Design principles
 

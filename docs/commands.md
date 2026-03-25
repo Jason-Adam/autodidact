@@ -6,7 +6,7 @@
 /do add pagination to the API
 ```
 
-Routes through the cost-ascending classifier (pattern match -> active state -> keyword heuristic -> LLM). Most requests resolve with zero LLM tokens.
+Routes through the cost-ascending classifier (pattern match -> active state -> keyword heuristic -> plan structure -> LLM). Most requests resolve with zero LLM tokens.
 
 ## `/plan` — clarify, research, design
 
@@ -70,6 +70,31 @@ See [loop.md](loop.md) for full details including exit detection, circuit breake
 ```
 
 User-taught knowledge starts at 0.7 confidence and is injected into future sessions when relevant.
+
+## `/polish` — parallel code quality
+
+```
+/polish              # review + security scan + simplify on changed files
+/polish src/db.py    # polish specific files
+```
+
+Runs three agents in parallel (code-reviewer, security-reviewer, code-simplifier), deduplicates findings, auto-fixes issues, and records quality scores to the learning DB. Subsumes `/review`.
+
+## `/forget` — decay learnings
+
+```
+/forget pytest fixtures always go in conftest.py
+```
+
+Decays or removes specific learnings from the database. Useful when a prior teaching is no longer accurate.
+
+## `/learn_status` — knowledge inventory
+
+```
+/learn_status
+```
+
+Shows confidence stats and knowledge inventory from the learning database — how many learnings exist, their confidence distribution, and recent activity.
 
 ## `/review`, `/handoff`, `/sync-thoughts`
 
