@@ -318,10 +318,30 @@ class TestInvokeClaude(unittest.TestCase):
 
         cmd = mock_run.call_args[0][0]
         self.assertIn("--allowedTools", cmd)
-        self.assertIn("Read", cmd)
-        self.assertIn("Bash", cmd)
-        # Default tools should NOT be present when custom tools are specified
-        self.assertNotIn("Agent", cmd)
+        idx = cmd.index("--allowedTools")
+        # Next flag after tools is either --resume, --append-system-prompt, or -p
+        next_flag = next(i for i in range(idx + 1, len(cmd)) if cmd[i].startswith("-"))
+        tool_args = cmd[idx + 1 : next_flag]
+        self.assertEqual(tool_args, ["Read", "Bash"])
+
+    @patch("src.loop.subprocess.run")
+    def test_invoke_claude_rejects_invalid_tool_names(self, mock_run) -> None:
+        config = _make_config(
+            self.tmp_dir, mode="campaign", allowed_tools=["--dangerously-skip-permissions"]
+        )
+        runner = LoopRunner(config)
+        with self.assertRaises(ValueError, msg="Invalid tool name"):
+            runner._invoke_claude("Loop #1.")
+        mock_run.assert_not_called()
+
+    @patch("src.loop.subprocess.run")
+    def test_invoke_claude_accepts_tool_with_pattern(self, mock_run) -> None:
+        mock_run.return_value = _mock_subprocess_result(_default_claude_output())
+        config = _make_config(self.tmp_dir, mode="campaign", allowed_tools=["Bash(git:*)"])
+        runner = LoopRunner(config)
+        runner._invoke_claude("Loop #1.")
+        cmd = mock_run.call_args[0][0]
+        self.assertIn("Bash(git:*)", cmd)
 
     @patch("src.loop.subprocess.run")
     def test_invoke_claude_includes_resume(self, mock_run) -> None:
