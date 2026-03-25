@@ -14,7 +14,7 @@ from typing import Any
 
 DEFAULT_DB_PATH = Path.home() / ".claude" / "autodidact" / "learning.db"
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS learnings (
@@ -94,12 +94,20 @@ class LearningDB:
         version = self.conn.execute("PRAGMA user_version").fetchone()[0]
         if version < 1:
             self.conn.executescript(_SCHEMA_V1)
-            self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            self.conn.execute("PRAGMA user_version = 1")
             self.conn.commit()
+            version = 1
         if version < 2:
             self.conn.execute("ALTER TABLE learnings ADD COLUMN access_count INTEGER DEFAULT 0")
             self.conn.execute("ALTER TABLE learnings ADD COLUMN outcome TEXT DEFAULT ''")
-            self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            self.conn.execute("PRAGMA user_version = 2")
+            self.conn.commit()
+            version = 2
+        if version < 3:
+            self.conn.execute(
+                "ALTER TABLE learnings ADD COLUMN last_accessed_session TEXT DEFAULT ''"
+            )
+            self.conn.execute("PRAGMA user_version = 3")
             self.conn.commit()
 
     def close(self) -> None:
@@ -212,11 +220,15 @@ class LearningDB:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def increment_access(self, learning_id: int) -> None:
+    def increment_access(self, learning_id: int, session_id: str = "") -> None:
         """Increment access counter when a learning is injected into a session."""
         self.conn.execute(
-            "UPDATE learnings SET access_count = access_count + 1, last_seen = ? WHERE id = ?",
-            (_now_iso(), learning_id),
+            """UPDATE learnings
+            SET access_count = access_count + 1,
+                last_seen = ?,
+                last_accessed_session = CASE WHEN ? != '' THEN ? ELSE last_accessed_session END
+            WHERE id = ?""",
+            (_now_iso(), session_id, session_id, learning_id),
         )
         self.conn.commit()
 
@@ -471,16 +483,9 @@ class LearningDB:
         self.conn.commit()
 
     def get_accessed_in_session(self, session_id: str) -> list[dict[str, Any]]:
-        """Get learnings that were accessed (injected) during a session.
-
-        These are learnings whose access_count was incremented during
-        user_prompt_submit or session_start, identified by session_id.
-        """
+        """Get learnings that were accessed (injected) during a session."""
         rows = self.conn.execute(
-            """
-            SELECT * FROM learnings
-            WHERE session_id = ? AND access_count > 0
-            """,
+            "SELECT * FROM learnings WHERE last_accessed_session = ? AND access_count > 0",
             (session_id,),
         ).fetchall()
         return [dict(r) for r in rows]

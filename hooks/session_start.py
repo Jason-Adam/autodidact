@@ -34,6 +34,7 @@ def main() -> None:
 
     messages: list[str] = []
     cwd = hook_input.get("cwd", "")
+    session_id = hook_input.get("session_id", "")
     project_path = resolve_main_repo(cwd) if cwd else ""
 
     try:
@@ -86,9 +87,12 @@ def main() -> None:
                 last_discover_path.write_text(today)
 
         # Inject progressive learnings for current project
+        # Derive topic hint from project directory name for FTS relevance
+        topic_hint = Path(project_path).name if project_path else ""
         learnings = db.get_progressive_learnings(
             token_budget=2000,
             project_path=project_path,
+            topic_hint=topic_hint,
             min_confidence=INJECTION_MIN_CONFIDENCE,
         )
 
@@ -100,7 +104,7 @@ def main() -> None:
             if core:
                 lines.append("AUTODIDACT LEARNINGS (high confidence):")
                 for entry in core:
-                    db.increment_access(entry["id"])
+                    db.increment_access(entry["id"], session_id=session_id)
                     lines.append(
                         f"  [{entry['topic']}/{entry['key']}] "
                         f"{entry['value']} (conf: {entry['confidence']:.2f})"
@@ -108,7 +112,7 @@ def main() -> None:
             if relevant:
                 lines.append("\nPOSSIBLY RELEVANT:")
                 for entry in relevant:
-                    db.increment_access(entry["id"])
+                    db.increment_access(entry["id"], session_id=session_id)
                     lines.append(
                         f"  [{entry['topic']}/{entry['key']}] "
                         f"{entry['value']} (conf: {entry['confidence']:.2f})"

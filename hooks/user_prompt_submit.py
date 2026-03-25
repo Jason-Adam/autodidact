@@ -27,6 +27,7 @@ def main() -> None:
         hook_input = {}
 
     prompt = hook_input.get("userMessage", "")
+    session_id = hook_input.get("session_id", "")
 
     if not prompt or not prompt.strip():
         json.dump({}, sys.stdout)
@@ -42,7 +43,7 @@ def main() -> None:
         if learnings:
             lines = ["RELEVANT LEARNINGS:"]
             for entry in learnings:
-                db.increment_access(entry["id"])
+                db.increment_access(entry["id"], session_id=session_id)
                 lines.append(
                     f"  [{entry['topic']}/{entry['key']}] "
                     f"{entry['value']} (conf: {entry['confidence']:.2f})"
