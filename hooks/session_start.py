@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Add repo root to path for src imports
@@ -18,7 +18,11 @@ sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
-from src.rtk_integration import get_rtk_savings_summary, is_rtk_installed
+from src.rtk_integration import (
+    feed_discover_to_db,
+    get_rtk_savings_summary,
+    is_rtk_installed,
+)
 
 
 def main() -> None:
@@ -67,15 +71,11 @@ def main() -> None:
         should_discover = True
         try:
             last_discover = last_discover_path.read_text().strip()
-            from datetime import timedelta
-
             last_date = datetime.strptime(last_discover, "%Y-%m-%d").replace(tzinfo=UTC)
             should_discover = (datetime.now(UTC) - last_date) >= timedelta(days=7)
         except (OSError, ValueError):
             pass
         if should_discover:
-            from src.rtk_integration import feed_discover_to_db
-
             recorded = feed_discover_to_db(project_path, db)
             if recorded > 0:
                 messages.append(
@@ -88,7 +88,7 @@ def main() -> None:
         learnings = db.get_top_learnings(limit=10, project_path=project_path)
         if learnings:
             lines = ["AUTODIDACT LEARNINGS (top confidence):"]
-            for entry in learnings[:10]:
+            for entry in learnings:
                 db.increment_access(entry["id"])
                 lines.append(
                     f"  [{entry['topic']}/{entry['key']}] "

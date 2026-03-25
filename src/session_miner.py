@@ -19,6 +19,7 @@ from src.db import LearningDB
 _PROJECTS_DIR = Path.home() / ".claude" / "projects"
 _JACCARD_THRESHOLD = 0.6
 _WINDOW_SIZE = 3
+_MAX_SESSION_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 # ── Path encoding ────────────────────────────────────────────────────────────
@@ -40,12 +41,14 @@ def discover_sessions(project_path: str) -> list[Path]:
 
     Returns list of Path objects for matching session files.
     """
+    if not project_path or not Path(project_path).is_absolute():
+        return []
     encoded = _encode_path(project_path)
     if not _PROJECTS_DIR.exists():
         return []
     sessions: list[Path] = []
     for entry in _PROJECTS_DIR.iterdir():
-        if entry.is_dir() and entry.name == encoded:
+        if entry.is_dir() and not entry.is_symlink() and entry.name == encoded:
             sessions.extend(entry.glob("*.jsonl"))
     return sessions
 
@@ -66,6 +69,8 @@ def extract_commands(session_path: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
 
     try:
+        if session_path.stat().st_size > _MAX_SESSION_BYTES:
+            return []
         text = session_path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []

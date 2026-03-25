@@ -102,21 +102,27 @@ def _tee_output(tool_name: str, tool_output: str, cwd: str) -> str | None:
 
     with contextlib.suppress(OSError):
         tee_dir.mkdir(parents=True, exist_ok=True)
+        if tee_dir.is_symlink():
+            return None
+
+        # Sanitize tool_name to prevent path traversal
+        safe_name = re.sub(r"[^\w\-]", "_", tool_name)
+
+        # Snapshot existing files BEFORE writing (avoids self-deletion on rotation)
+        existing = sorted(tee_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
 
         # Write the tee file
         epoch = int(time.time())
-        filename = f"{epoch}_{tool_name}.log"
+        filename = f"{epoch}_{safe_name}.log"
         tee_path = tee_dir / filename
         content = tool_output
         if len(content.encode()) > _TEE_MAX_BYTES:
-            # Truncate to _TEE_MAX_BYTES bytes, decoding safely
             content = tool_output.encode()[:_TEE_MAX_BYTES].decode("utf-8", errors="replace")
-        with contextlib.suppress(OSError):
-            tee_path.write_text(content)
+        tee_path.write_text(content)
+        tee_path.chmod(0o600)
 
-        # Rotate: keep only the last _TEE_MAX_FILES files
-        existing = sorted(tee_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
-        while len(existing) > _TEE_MAX_FILES:
+        # Rotate: keep only the last _TEE_MAX_FILES files (from pre-write snapshot)
+        while len(existing) >= _TEE_MAX_FILES:
             with contextlib.suppress(OSError):
                 existing.pop(0).unlink()
 

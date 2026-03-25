@@ -37,6 +37,8 @@ def get_rtk_savings_summary(project_path: str) -> dict[str, object] | None:
             timeout=10,
             cwd=project_path or None,
         )
+        if result.returncode != 0:
+            return None
         parsed: dict[str, object] = json.loads(result.stdout)
         return parsed
     except (subprocess.SubprocessError, json.JSONDecodeError, OSError):
@@ -58,6 +60,8 @@ def get_rtk_discover_opportunities(project_path: str) -> dict[str, object] | Non
             timeout=10,
             cwd=project_path or None,
         )
+        if result.returncode != 0:
+            return None
         parsed: dict[str, object] = json.loads(result.stdout)
         return parsed
     except (subprocess.SubprocessError, json.JSONDecodeError, OSError):
@@ -83,6 +87,8 @@ def get_rtk_economics(project_path: str) -> dict[str, object] | None:
             timeout=10,
             cwd=project_path or None,
         )
+        if gain_result.returncode != 0:
+            return None
         gain_data: dict[str, object] = json.loads(gain_result.stdout)
     except (subprocess.SubprocessError, json.JSONDecodeError, OSError):
         return None
