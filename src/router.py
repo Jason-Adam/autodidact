@@ -278,6 +278,16 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("try different", 0.3),
         ("improve performance", 0.4),
     ],
+    "learn_status": [
+        ("token savings", 0.6),
+        ("token economics", 0.6),
+        ("rtk", 0.5),
+        ("savings", 0.3),
+        ("learning stats", 0.6),
+        ("knowledge inventory", 0.6),
+        ("confidence stats", 0.6),
+        ("graduation candidates", 0.6),
+    ],
 }
 
 

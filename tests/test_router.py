@@ -160,6 +160,17 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-polish")
         self.assertEqual(r.tier, 2)
 
+    def test_token_savings_routes_to_learn_status(self) -> None:
+        """RTK/token-savings queries route to learn_status (no prefix)."""
+        r = classify("show my token savings")
+        self.assertEqual(r.skill, "learn_status")
+        self.assertEqual(r.tier, 2)
+
+    def test_rtk_routes_to_learn_status(self) -> None:
+        r = classify("rtk stats and learning stats")
+        self.assertEqual(r.skill, "learn_status")
+        self.assertEqual(r.tier, 2)
+
     def test_low_score_falls_through(self) -> None:
         r = classify("fix the bug in the login form")
         self.assertEqual(r.tier, 3)  # Falls through to LLM
