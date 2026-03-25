@@ -16,8 +16,9 @@ sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
 
+_STATE_DIR = Path.home() / ".claude" / "autodidact"
 # Marker file so stop.py can detect whether any task completed this session
-_TASK_SUCCESS_PATH = Path("/tmp/autodidact_task_success.json")
+_TASK_SUCCESS_PATH = _STATE_DIR / "task_success.json"
 
 
 def _mark_task_success(session_id: str) -> None:

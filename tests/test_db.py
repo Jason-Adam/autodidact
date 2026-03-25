@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -42,9 +44,9 @@ class TestLearningDB(unittest.TestCase):
         self.assertEqual(rows[0]["value"], "Add import statement v2")
 
     def test_record_upsert_keeps_higher_confidence(self) -> None:
-        self.db.record("error", "test_key", "value", confidence=0.8)
+        lid = self.db.record("error", "test_key", "value", confidence=0.8)
         self.db.record("error", "test_key", "value2", confidence=0.3)
-        row = self.db.get_by_id(1)
+        row = self.db.get_by_id(lid)
         assert row is not None
         self.assertAlmostEqual(row["confidence"], 0.8)
 
@@ -250,8 +252,6 @@ class TestRunSummary(unittest.TestCase):
         self.assertEqual(row["category"], "run_summary")
 
     def test_run_summary_json_fields(self) -> None:
-        import json
-
         summary = {
             "iterations": 3,
             "exit_reason": "test_saturation",
@@ -266,8 +266,6 @@ class TestRunSummary(unittest.TestCase):
         self.assertEqual(parsed["exit_reason"], "test_saturation")
 
     def test_multiple_summaries_distinct(self) -> None:
-        import time
-
         s1 = {"iterations": 1, "exit_reason": "a", "final_phase": "closed", "mode": "run"}
         s2 = {"iterations": 2, "exit_reason": "b", "final_phase": "closed", "mode": "run"}
         lid1 = self.db.record_run_summary(s1)
@@ -347,16 +345,16 @@ class TestOutcome(unittest.TestCase):
             self.assertEqual(r["outcome"], "interesting")
 
     def test_upsert_preserves_nonempty_outcome(self) -> None:
-        self.db.record("test", "upsert_out", "v1", outcome="interesting")
+        lid = self.db.record("test", "upsert_out", "v1", outcome="interesting")
         self.db.record("test", "upsert_out", "v2", outcome="")
-        row = self.db.get_by_id(1)
+        row = self.db.get_by_id(lid)
         assert row is not None
         self.assertEqual(row["outcome"], "interesting")
 
     def test_upsert_overwrites_with_nonempty(self) -> None:
-        self.db.record("test", "upsert_out2", "v1", outcome="interesting")
+        lid = self.db.record("test", "upsert_out2", "v1", outcome="interesting")
         self.db.record("test", "upsert_out2", "v2", outcome="success")
-        row = self.db.get_by_id(1)
+        row = self.db.get_by_id(lid)
         assert row is not None
         self.assertEqual(row["outcome"], "success")
 
@@ -414,30 +412,39 @@ class TestGetAccessedInSession(unittest.TestCase):
         self.db.close()
 
     def test_returns_accessed_learnings(self) -> None:
-        lid1 = self.db.record("a", "k1", "v1", session_id="sess1")
-        self.db.record("b", "k2", "v2", session_id="sess1")
-        self.db.increment_access(lid1)
-        # second learning has access_count=0, should not be returned
+        lid1 = self.db.record("a", "k1", "v1")
+        self.db.record("b", "k2", "v2")
+        self.db.increment_access(lid1, session_id="sess1")
+        # second learning was not accessed, should not be returned
         results = self.db.get_accessed_in_session("sess1")
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["id"], lid1)
 
     def test_excludes_other_sessions(self) -> None:
-        lid = self.db.record("a", "k1", "v1", session_id="sess1")
-        self.db.increment_access(lid)
-        self.db.record("b", "k2", "v2", session_id="sess2")
+        lid = self.db.record("a", "k1", "v1")
+        self.db.increment_access(lid, session_id="sess1")
+        self.db.record("b", "k2", "v2")
+        # sess2 never accessed anything
         results = self.db.get_accessed_in_session("sess2")
         self.assertEqual(len(results), 0)
+
+    def test_cross_session_access(self) -> None:
+        """A learning created in sess1 but accessed in sess2 should appear in sess2."""
+        lid = self.db.record("a", "k1", "v1", session_id="sess1")
+        self.db.increment_access(lid, session_id="sess2")
+        results = self.db.get_accessed_in_session("sess2")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["id"], lid)
 
     def test_empty_session_returns_empty(self) -> None:
         results = self.db.get_accessed_in_session("nonexistent")
         self.assertEqual(len(results), 0)
 
     def test_multiple_accessed(self) -> None:
-        lid1 = self.db.record("a", "k1", "v1", session_id="sess1")
-        lid2 = self.db.record("b", "k2", "v2", session_id="sess1")
-        self.db.increment_access(lid1)
-        self.db.increment_access(lid2)
+        lid1 = self.db.record("a", "k1", "v1")
+        lid2 = self.db.record("b", "k2", "v2")
+        self.db.increment_access(lid1, session_id="sess1")
+        self.db.increment_access(lid2, session_id="sess1")
         results = self.db.get_accessed_in_session("sess1")
         self.assertEqual(len(results), 2)
 

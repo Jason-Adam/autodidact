@@ -81,7 +81,8 @@ def _extract_observation(
     key = f"obs_{sig}"
 
     # Tags: tool name + first word of command
-    first_word = cmd_stripped.split()[0] if cmd_stripped.split() else "unknown"
+    parts = cmd_stripped.split()
+    first_word = parts[0] if parts else "unknown"
     tags = f"bash {first_word}"
 
     # Value: command + condensed result
@@ -91,9 +92,12 @@ def _extract_observation(
 
 
 # Cache for tool availability (per-session via file)
-_TOOL_CACHE_PATH = Path("/tmp/autodidact_tool_cache.json")
+_STATE_DIR = Path.home() / ".claude" / "autodidact"
+with contextlib.suppress(OSError):
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+_TOOL_CACHE_PATH = _STATE_DIR / "tool_cache.json"
 # Tracks the last known-error fix we surfaced, so we can decay if it didn't help
-_PENDING_FIX_PATH = Path("/tmp/autodidact_pending_fix.json")
+_PENDING_FIX_PATH = _STATE_DIR / "pending_fix.json"
 
 
 def _get_tool_cache() -> dict:
@@ -106,8 +110,6 @@ def _get_tool_cache() -> dict:
 
 
 def _set_tool_cache(cache: dict) -> None:
-    import contextlib
-
     with contextlib.suppress(OSError):
         _TOOL_CACHE_PATH.write_text(json.dumps(cache))
 
@@ -134,8 +136,6 @@ def _load_pending_fix() -> dict | None:
 
 def _save_pending_fix(signature: str, learning_id: int) -> None:
     """Save a marker that we surfaced a fix for this error signature."""
-    import contextlib
-
     with contextlib.suppress(OSError):
         _PENDING_FIX_PATH.write_text(
             json.dumps({"signature": signature, "learning_id": learning_id})
@@ -144,8 +144,6 @@ def _save_pending_fix(signature: str, learning_id: int) -> None:
 
 def _clear_pending_fix() -> None:
     """Clear the pending fix marker."""
-    import contextlib
-
     with contextlib.suppress(OSError):
         _PENDING_FIX_PATH.unlink(missing_ok=True)
 
@@ -163,9 +161,9 @@ def _tee_output(tool_name: str, tool_output: str, cwd: str) -> str | None:
     tee_dir = Path(cwd) / ".planning" / "tee"
 
     with contextlib.suppress(OSError):
-        tee_dir.mkdir(parents=True, exist_ok=True)
-        if tee_dir.is_symlink():
+        if tee_dir.exists() and tee_dir.is_symlink():
             return None
+        tee_dir.mkdir(parents=True, exist_ok=True)
 
         # Sanitize tool_name to prevent path traversal
         safe_name = re.sub(r"[^\w\-]", "_", tool_name)
@@ -218,8 +216,8 @@ def _run_quality_check(file_path: str) -> list[str]:
     suffix = path.suffix.lower()
 
     if suffix == ".py":
-        # ruff check
         if _has_tool("ruff"):
+            # ruff check
             try:
                 result = subprocess.run(
                     ["ruff", "check", "--select=E,F", str(path)],
@@ -232,8 +230,7 @@ def _run_quality_check(file_path: str) -> list[str]:
             except (subprocess.TimeoutExpired, OSError):
                 pass
 
-        # ruff format check
-        if _has_tool("ruff"):
+            # ruff format check
             try:
                 result = subprocess.run(
                     ["ruff", "format", "--check", str(path)],
@@ -311,7 +308,7 @@ def main() -> None:
     tool_input = hook_input.get("tool_input", {})
     tool_output = hook_input.get("tool_output", "")
     is_error = hook_input.get("is_error", False)
-    session_id = hook_input.get("session_id", "")
+    session_id = hook_input.get("session_id") or hook_input.get("sessionId") or ""
     cwd = hook_input.get("cwd", "")
     project_path = resolve_main_repo(cwd) if cwd else ""
 
