@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from src.rtk_integration import (
+    feed_discover_to_db,
     get_rtk_discover_opportunities,
     get_rtk_economics,
     get_rtk_savings_summary,
@@ -155,3 +156,49 @@ class TestGetRtkEconomics(unittest.TestCase):
         assert result is not None
         self.assertEqual(result["gain"], gain_payload)
         self.assertIsNone(result["cc_economics"])
+
+
+class TestFeedDiscoverToDb(unittest.TestCase):
+    def test_feed_discover_to_db_success(self) -> None:
+        """Entries with count >= 3 are recorded; entries below threshold are skipped."""
+        discover_data = {
+            "supported": [
+                {"command": "ls", "count": 5, "savings_percent": 75},
+                {"command": "git", "count": 10, "savings_percent": 80},
+                {"command": "cat", "count": 2, "savings_percent": 65},  # below threshold
+                {"command": "find", "count": 1, "savings_percent": 70},  # below threshold
+            ]
+        }
+        db = MagicMock()
+        with patch(
+            "src.rtk_integration.get_rtk_discover_opportunities",
+            return_value=discover_data,
+        ):
+            result = feed_discover_to_db("/some/project", db)
+
+        self.assertEqual(result, 2)
+        self.assertEqual(db.record.call_count, 2)
+
+    def test_feed_discover_to_db_no_rtk(self) -> None:
+        """Returns 0 and makes no db.record calls when RTK is not available."""
+        db = MagicMock()
+        with patch(
+            "src.rtk_integration.get_rtk_discover_opportunities",
+            return_value=None,
+        ):
+            result = feed_discover_to_db("/some/project", db)
+
+        self.assertEqual(result, 0)
+        db.record.assert_not_called()
+
+    def test_feed_discover_to_db_empty_supported(self) -> None:
+        """Returns 0 when supported list is empty."""
+        db = MagicMock()
+        with patch(
+            "src.rtk_integration.get_rtk_discover_opportunities",
+            return_value={"supported": []},
+        ):
+            result = feed_discover_to_db("/some/project", db)
+
+        self.assertEqual(result, 0)
+        db.record.assert_not_called()

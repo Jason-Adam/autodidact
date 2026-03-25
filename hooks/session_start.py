@@ -6,6 +6,7 @@ Fires when a new Claude Code session starts. Non-blocking (exit 0).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 from datetime import UTC, datetime
@@ -60,6 +61,28 @@ def main() -> None:
                 "RTK saves 60-90% tokens on CLI output. "
                 "Install: brew install patrickszmukowiak/tap/rtk"
             )
+
+        # RTK discover -> learning DB (weekly)
+        last_discover_path = Path(db.db_path).parent / ".last_rtk_discover"
+        should_discover = True
+        try:
+            last_discover = last_discover_path.read_text().strip()
+            from datetime import timedelta
+
+            last_date = datetime.strptime(last_discover, "%Y-%m-%d").replace(tzinfo=UTC)
+            should_discover = (datetime.now(UTC) - last_date) >= timedelta(days=7)
+        except (OSError, ValueError):
+            pass
+        if should_discover:
+            from src.rtk_integration import feed_discover_to_db
+
+            recorded = feed_discover_to_db(project_path, db)
+            if recorded > 0:
+                messages.append(
+                    f"RTK discover: {recorded} optimization tips recorded to learning DB"
+                )
+            with contextlib.suppress(OSError):
+                last_discover_path.write_text(today)
 
         # Inject top learnings for current project
         learnings = db.get_top_learnings(limit=10, project_path=project_path)

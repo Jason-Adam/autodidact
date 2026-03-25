@@ -104,3 +104,46 @@ def get_rtk_economics(project_path: str) -> dict[str, object] | None:
         "gain": gain_data,
         "cc_economics": cc_economics_data,
     }
+
+
+# ── Learning DB Feed ─────────────────────────────────────────────────
+
+
+def feed_discover_to_db(project_path: str, db: object) -> int:
+    """Query RTK discover and feed opportunities into the learning DB.
+
+    Calls get_rtk_discover_opportunities and records entries with count >= 3
+    into the DB as rtk_optimization learnings.
+
+    Returns the count of learnings recorded.
+    """
+    data = get_rtk_discover_opportunities(project_path)
+    if data is None:
+        return 0
+
+    raw_supported = data.get("supported", [])
+    if not isinstance(raw_supported, list) or not raw_supported:
+        return 0
+
+    recorded = 0
+    for entry in raw_supported:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("count", 0) >= 3:
+            command = entry.get("command", "unknown")
+            savings = entry.get("savings_percent", 70)
+            db.record(  # type: ignore[attr-defined]
+                topic="rtk_optimization",
+                key=command,
+                value=(
+                    f"Use rtk {command} instead of raw {command}"
+                    f" — saves ~{savings}% tokens on output"
+                ),
+                source="rtk_discover",
+                confidence=0.4,
+                tags="rtk token-savings optimization",
+                project_path=project_path,
+            )
+            recorded += 1
+
+    return recorded
