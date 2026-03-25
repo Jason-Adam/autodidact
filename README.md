@@ -57,10 +57,13 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Yes | The AI coding tool this harness extends |
 | [git](https://git-scm.com/) | Yes | Version control, worktree isolation for fleet |
 | [gh](https://cli.github.com/) | For PRs | GitHub CLI for pull requests |
+| [rtk](https://github.com/rtk-ai/rtk) | Recommended | Token-optimized CLI proxy — 60-90% savings on dev tool output |
 | [ruff](https://docs.astral.sh/ruff/) | For quality checks | Linting/formatting Python files on every edit |
 | [mypy](https://mypy-lang.org/) | Optional | Type checking Python files (runs if project has mypy config) |
 
 `ruff` and `mypy` are installed as dev dependencies via `uv sync` — no separate install needed.
+
+`rtk` is a standalone CLI (`brew install rtk-ai/tap/rtk`) — once installed, autodidact automatically detects it, injects token savings summaries at session start, and feeds optimization opportunities into the learning database weekly via `rtk discover`.
 
 ## Installation
 
