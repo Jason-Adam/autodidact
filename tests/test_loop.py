@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from src.circuit_breaker import BreakerPhase
 from src.exit_tracker import ExitDecision
-from src.loop import LoopConfig, LoopRunner
+from src.loop import DEFAULT_ALLOWED_TOOLS, LoopConfig, LoopRunner
 from src.response_analyzer import ResponseAnalysis
 
 
@@ -293,6 +293,55 @@ class TestInvokeClaude(unittest.TestCase):
         self.assertIn("json", cmd)
         self.assertIn("--append-system-prompt", cmd)
         self.assertIn("-p", cmd)
+
+    @patch("src.loop.subprocess.run")
+    def test_invoke_claude_includes_default_allowed_tools(self, mock_run) -> None:
+        mock_run.return_value = _mock_subprocess_result(_default_claude_output())
+        config = _make_config(self.tmp_dir, mode="run", plan_path=Path(self.tmp_dir) / "p.md")
+        runner = LoopRunner(config)
+
+        runner._invoke_claude("Loop #1.")
+
+        cmd = mock_run.call_args[0][0]
+        self.assertIn("--allowedTools", cmd)
+        idx = cmd.index("--allowedTools")
+        for tool in DEFAULT_ALLOWED_TOOLS:
+            self.assertIn(tool, cmd[idx + 1 :])
+
+    @patch("src.loop.subprocess.run")
+    def test_invoke_claude_custom_allowed_tools(self, mock_run) -> None:
+        mock_run.return_value = _mock_subprocess_result(_default_claude_output())
+        config = _make_config(self.tmp_dir, mode="campaign", allowed_tools=["Read", "Bash"])
+        runner = LoopRunner(config)
+
+        runner._invoke_claude("Loop #1.")
+
+        cmd = mock_run.call_args[0][0]
+        self.assertIn("--allowedTools", cmd)
+        idx = cmd.index("--allowedTools")
+        # Next flag after tools is either --resume, --append-system-prompt, or -p
+        next_flag = next(i for i in range(idx + 1, len(cmd)) if cmd[i].startswith("-"))
+        tool_args = cmd[idx + 1 : next_flag]
+        self.assertEqual(tool_args, ["Read", "Bash"])
+
+    @patch("src.loop.subprocess.run")
+    def test_invoke_claude_rejects_invalid_tool_names(self, mock_run) -> None:
+        config = _make_config(
+            self.tmp_dir, mode="campaign", allowed_tools=["--dangerously-skip-permissions"]
+        )
+        runner = LoopRunner(config)
+        with self.assertRaises(ValueError, msg="Invalid tool name"):
+            runner._invoke_claude("Loop #1.")
+        mock_run.assert_not_called()
+
+    @patch("src.loop.subprocess.run")
+    def test_invoke_claude_accepts_tool_with_pattern(self, mock_run) -> None:
+        mock_run.return_value = _mock_subprocess_result(_default_claude_output())
+        config = _make_config(self.tmp_dir, mode="campaign", allowed_tools=["Bash(git:*)"])
+        runner = LoopRunner(config)
+        runner._invoke_claude("Loop #1.")
+        cmd = mock_run.call_args[0][0]
+        self.assertIn("Bash(git:*)", cmd)
 
     @patch("src.loop.subprocess.run")
     def test_invoke_claude_includes_resume(self, mock_run) -> None:

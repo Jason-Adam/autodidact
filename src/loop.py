@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -28,6 +29,21 @@ from src.self_assessment import (
     parse_assessment_block,
     score_assessment,
 )
+
+_TOOL_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\(.*\))?$")
+
+# Tools the loop subprocess needs to do real work.
+# Passed via --allowedTools so non-interactive claude sessions can edit files.
+DEFAULT_ALLOWED_TOOLS: list[str] = [
+    "Read",
+    "Write",
+    "Edit",
+    "Bash",
+    "Grep",
+    "Glob",
+    "Agent",
+    "Skill",
+]
 
 
 @dataclass
@@ -218,9 +234,18 @@ class LoopRunner:
         """Build and execute the claude CLI command."""
         cmd = ["claude", "--output-format", "json"]
 
-        if self.config.allowed_tools:
+        tools = (
+            DEFAULT_ALLOWED_TOOLS
+            if self.config.allowed_tools is None
+            else self.config.allowed_tools
+        )
+        if tools:
+            for t in tools:
+                if not _TOOL_NAME_RE.match(t):
+                    msg = f"Invalid tool name: {t!r}"
+                    raise ValueError(msg)
             cmd.append("--allowedTools")
-            cmd.extend(self.config.allowed_tools)
+            cmd.extend(tools)
 
         if self.session_id and self._session_valid():
             cmd.extend(["--resume", self.session_id])
@@ -304,6 +329,13 @@ def main() -> None:
     parser.add_argument("--cwd", default=None)
     parser.add_argument("--plan", default=None)
     parser.add_argument("--campaign", default=None)
+    parser.add_argument(
+        "--allowed-tools",
+        nargs="+",
+        default=None,
+        dest="allowed_tools",
+        help="Tools to allow in subprocess (default: DEFAULT_ALLOWED_TOOLS)",
+    )
     args = parser.parse_args()
 
     cwd = args.cwd or os.getcwd()
@@ -325,6 +357,7 @@ def main() -> None:
         plan_path=plan_path,
         campaign_slug=args.campaign,
         max_iterations=args.max_iterations,
+        allowed_tools=args.allowed_tools,
     )
     runner = LoopRunner(config)
     result = runner.run()
