@@ -44,6 +44,7 @@ class TestTeeOutputWritesFile(unittest.TestCase):
             result = _tee_output("Bash", output, tmpdir)
 
             self.assertIsNotNone(result)
+            assert result is not None
             self.assertIn(".planning/tee/", result)
             self.assertIn("Bash", result)
             self.assertTrue(result.startswith("[full output: .planning/tee/"))
@@ -68,6 +69,7 @@ class TestTeeOutputWritesFile(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _tee_output("MyTool", "y" * 600, tmpdir)
             self.assertIsNotNone(result)
+            assert result is not None
             self.assertIn("MyTool", result)
 
     def test_exactly_500_bytes_triggers_write(self):
