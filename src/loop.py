@@ -29,6 +29,19 @@ from src.self_assessment import (
     score_assessment,
 )
 
+# Tools the loop subprocess needs to do real work.
+# Passed via --allowedTools so non-interactive claude sessions can edit files.
+DEFAULT_ALLOWED_TOOLS: list[str] = [
+    "Read",
+    "Write",
+    "Edit",
+    "Bash",
+    "Grep",
+    "Glob",
+    "Agent",
+    "Skill",
+]
+
 
 @dataclass
 class LoopConfig:
@@ -218,9 +231,9 @@ class LoopRunner:
         """Build and execute the claude CLI command."""
         cmd = ["claude", "--output-format", "json"]
 
-        if self.config.allowed_tools:
-            cmd.append("--allowedTools")
-            cmd.extend(self.config.allowed_tools)
+        tools = self.config.allowed_tools or DEFAULT_ALLOWED_TOOLS
+        cmd.append("--allowedTools")
+        cmd.extend(tools)
 
         if self.session_id and self._session_valid():
             cmd.extend(["--resume", self.session_id])
@@ -304,6 +317,13 @@ def main() -> None:
     parser.add_argument("--cwd", default=None)
     parser.add_argument("--plan", default=None)
     parser.add_argument("--campaign", default=None)
+    parser.add_argument(
+        "--allowed-tools",
+        nargs="*",
+        default=None,
+        dest="allowed_tools",
+        help="Tools to allow in subprocess (default: DEFAULT_ALLOWED_TOOLS)",
+    )
     args = parser.parse_args()
 
     cwd = args.cwd or os.getcwd()
@@ -325,6 +345,7 @@ def main() -> None:
         plan_path=plan_path,
         campaign_slug=args.campaign,
         max_iterations=args.max_iterations,
+        allowed_tools=args.allowed_tools,
     )
     runner = LoopRunner(config)
     result = runner.run()
