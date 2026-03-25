@@ -194,6 +194,29 @@ class TestBuildContext(unittest.TestCase):
         context = runner._build_context(1)
         self.assertLessEqual(len(context), 500)
 
+    def test_build_context_half_open_preserves_assessment_prompt(self) -> None:
+        config = _make_config(self.tmp_dir)
+        runner = LoopRunner(config)
+        runner.circuit_breaker.state.phase = BreakerPhase.HALF_OPEN.value
+        context = runner._build_context(5)
+        self.assertIn("---SELF_ASSESSMENT---", context)
+        self.assertIn("---END_SELF_ASSESSMENT---", context)
+        self.assertIn("CIRCUIT BREAKER HALF_OPEN", context)
+
+    def test_build_context_half_open_includes_pivot_when_low_viability(self) -> None:
+        from src.interview import DimensionScore
+        from src.self_assessment import AssessmentResult
+
+        config = _make_config(self.tmp_dir)
+        runner = LoopRunner(config)
+        runner.circuit_breaker.state.phase = BreakerPhase.HALF_OPEN.value
+        runner.last_assessment = AssessmentResult(
+            scores=[DimensionScore("approach_viability", 0.3, 0.30)],
+            overall_clarity=0.3,
+        )
+        context = runner._build_context(5)
+        self.assertIn("PIVOT", context)
+
 
 class TestBuildPrompt(unittest.TestCase):
     def setUp(self) -> None:

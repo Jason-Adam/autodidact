@@ -22,6 +22,12 @@ from src.exit_tracker import ExitTracker
 from src.git_utils import resolve_main_repo
 from src.progress import ProgressReport, capture_snapshot, compare, is_productive_timeout
 from src.response_analyzer import ResponseAnalysis, analyze
+from src.self_assessment import (
+    AssessmentResult,
+    build_assessment_prompt,
+    parse_assessment_block,
+    score_assessment,
+)
 
 
 @dataclass
@@ -82,6 +88,7 @@ class LoopRunner:
         self.stop_path = planning_dir / "loop.stop"
         self._last_analysis: ResponseAnalysis | None = None
         self._iteration_count = 0
+        self.last_assessment: AssessmentResult | None = None
 
     def run(self) -> LoopResult:
         """Main loop. Write PID, reset exit tracker, iterate until done."""
@@ -118,6 +125,12 @@ class LoopRunner:
         cli_result = self._invoke_claude(context)
         analysis = analyze(cli_result.output, cli_result.exit_code)
         self._last_analysis = analysis
+
+        # Parse self-assessment if in HALF_OPEN
+        if self.circuit_breaker.current_phase == BreakerPhase.HALF_OPEN:
+            parsed = parse_assessment_block(cli_result.output)
+            if parsed:
+                self.last_assessment = score_assessment(parsed)
 
         # Update session
         if analysis.session_id:
@@ -156,6 +169,17 @@ class LoopRunner:
             parts.append(f"Remaining tasks: {remaining}.")
 
         phase = self.circuit_breaker.current_phase
+        if phase == BreakerPhase.HALF_OPEN:
+            # Assessment prompt is a structured contract — exempt from 500-char cap
+            assessment = build_assessment_prompt()
+            if self.last_assessment and self.last_assessment.should_pivot:
+                assessment += (
+                    " PIVOT: Your previous approach scored low viability. "
+                    "Change strategy before continuing."
+                )
+            base = " ".join(parts)[:200]
+            return f"{base} {assessment}"
+
         if phase != BreakerPhase.CLOSED:
             parts.append(f"Circuit breaker: {phase.value}.")
 
@@ -240,13 +264,17 @@ class LoopRunner:
 
     def _record_run_summary(self) -> None:
         """Persist a structured summary of this loop run to the learning DB."""
-        summary = {
+        summary: dict[str, object] = {
             "iterations": self._iteration_count,
             "exit_reason": self.exit_tracker.evaluate(self._last_analysis).reason
             or "max_iterations",
             "final_phase": self.circuit_breaker.current_phase.value,
             "mode": self.config.mode,
         }
+        if self.last_assessment:
+            scores: dict[str, float] = {s.name: s.clarity for s in self.last_assessment.scores}
+            scores["overall_clarity"] = self.last_assessment.overall_clarity
+            summary["assessment_scores"] = scores
         try:
             db = LearningDB()
             db.record_run_summary(
