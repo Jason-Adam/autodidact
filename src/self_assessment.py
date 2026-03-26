@@ -10,6 +10,7 @@ Reuses DimensionScore and compute_ambiguity from src.interview.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -49,12 +50,21 @@ class AssessmentResult:
         Both conditions must hold: low approach_viability signals the current
         strategy is failing, and low unblocking_paths confirms there are no
         known ways to recover — a true dead end worth pivoting away from.
+
+        If unblocking_paths is absent from scores, it defaults to 0.0
+        (assumes no escape routes), so pivot fires on approach_viability alone.
+        Non-finite values (NaN/inf) are treated as missing.
         """
+
         by_name = {s.name: s.clarity for s in self.scores}
         approach = by_name.get("approach_viability")
-        if approach is None or approach >= PIVOT_THRESHOLD:
+        if approach is None or not math.isfinite(approach):
+            return False
+        if approach >= PIVOT_THRESHOLD:
             return False
         unblocking = by_name.get("unblocking_paths", 0.0)
+        if not math.isfinite(unblocking):
+            unblocking = 0.0
         return unblocking < UNBLOCKING_THRESHOLD
 
 
