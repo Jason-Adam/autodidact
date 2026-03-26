@@ -326,8 +326,8 @@ class SweepResult:
 def run_scenario(scenario: Scenario) -> tuple[bool, int | None]:
     """Replay a scenario. Returns (tripped, iteration_of_trip).
 
-    iteration_of_trip is 0-indexed from the start of the stall pattern.
-    For legitimate scenarios that trip, it's the iteration index.
+    iteration_of_trip is 1-indexed (iteration count at which OPEN was reached).
+    For legitimate scenarios that trip, it's the iteration number.
     """
     breaker = CircuitBreaker()
 
@@ -337,6 +337,19 @@ def run_scenario(scenario: Scenario) -> tuple[bool, int | None]:
             return True, i + 1  # 1-indexed iteration count
 
     return False, None
+
+
+# Snapshot canonical defaults at import time so restore is always correct
+_DEFAULTS = {
+    "NO_PROGRESS_THRESHOLD": cb_module.NO_PROGRESS_THRESHOLD,
+    "SAME_ERROR_THRESHOLD": cb_module.SAME_ERROR_THRESHOLD,
+    "PERMISSION_DENIAL_THRESHOLD": cb_module.PERMISSION_DENIAL_THRESHOLD,
+    "HALF_OPEN_THRESHOLD": cb_module.HALF_OPEN_THRESHOLD,
+    "NO_FILES_MODIFIED_THRESHOLD": cb_module.NO_FILES_MODIFIED_THRESHOLD,
+}
+
+# Pre-tuning baseline for comparison (values before this PR)
+_PRE_TUNING_BASELINE = (3, 5, 2, 2, 4)
 
 
 def patch_constants(
@@ -355,12 +368,9 @@ def patch_constants(
 
 
 def restore_defaults() -> None:
-    """Restore module constants to their canonical values."""
-    cb_module.NO_PROGRESS_THRESHOLD = 5
-    cb_module.SAME_ERROR_THRESHOLD = 2
-    cb_module.PERMISSION_DENIAL_THRESHOLD = 2
-    cb_module.HALF_OPEN_THRESHOLD = 1
-    cb_module.NO_FILES_MODIFIED_THRESHOLD = 5
+    """Restore module constants from the import-time snapshot."""
+    for name, value in _DEFAULTS.items():
+        setattr(cb_module, name, value)
 
 
 def evaluate_params(
@@ -373,38 +383,42 @@ def evaluate_params(
 ) -> SweepResult:
     """Evaluate a parameter combination against the scenario corpus."""
     patch_constants(no_progress, same_error, permission_denial, half_open, no_files_modified)
+    try:
+        legitimate = [s for s in scenarios if s.category == "legitimate"]
+        stalls = [s for s in scenarios if s.category == "stall"]
 
-    legitimate = [s for s in scenarios if s.category == "legitimate"]
-    stalls = [s for s in scenarios if s.category == "stall"]
+        # False-trip rate: legitimate scenarios that tripped
+        legit_tripped = sum(1 for s in legitimate if run_scenario(s)[0])
+        false_trip_rate = legit_tripped / len(legitimate) if legitimate else 0.0
 
-    # False-trip rate: legitimate scenarios that tripped
-    legit_tripped = sum(1 for s in legitimate if run_scenario(s)[0])
-    false_trip_rate = legit_tripped / len(legitimate) if legitimate else 0.0
+        # True-trip latency: mean iterations until OPEN for stall scenarios that tripped
+        stall_latencies = []
+        for s in stalls:
+            tripped, iteration = run_scenario(s)
+            if tripped and iteration is not None:
+                stall_latencies.append(iteration)
 
-    # True-trip latency: mean iterations until OPEN for stall scenarios that tripped
-    stall_latencies = []
-    for s in stalls:
-        tripped, iteration = run_scenario(s)
-        if tripped and iteration is not None:
-            stall_latencies.append(iteration)
+        mean_latency = (
+            sum(stall_latencies) / len(stall_latencies) if stall_latencies else float("inf")
+        )
 
-    mean_latency = sum(stall_latencies) / len(stall_latencies) if stall_latencies else float("inf")
+        # Composite score: (1 - false_trip_rate) * 0.6 + (1 - normalized_latency) * 0.4
+        # Normalize latency to [0, 1] range; max reasonable is 10 iterations
+        normalized_latency = min(mean_latency / 10.0, 1.0)
+        composite = (1.0 - false_trip_rate) * 0.6 + (1.0 - normalized_latency) * 0.4
 
-    # Composite score: (1 - false_trip_rate) * 0.6 + (1 - normalized_latency) * 0.4
-    # Normalize latency to [0, 1] range; max reasonable is 10 iterations
-    normalized_latency = min(mean_latency / 10.0, 1.0)
-    composite = (1.0 - false_trip_rate) * 0.6 + (1.0 - normalized_latency) * 0.4
-
-    return SweepResult(
-        no_progress=no_progress,
-        same_error=same_error,
-        permission_denial=permission_denial,
-        half_open=half_open,
-        no_files_modified=no_files_modified,
-        false_trip_rate=false_trip_rate,
-        mean_true_trip_latency=mean_latency,
-        composite_score=composite,
-    )
+        return SweepResult(
+            no_progress=no_progress,
+            same_error=same_error,
+            permission_denial=permission_denial,
+            half_open=half_open,
+            no_files_modified=no_files_modified,
+            false_trip_rate=false_trip_rate,
+            mean_true_trip_latency=mean_latency,
+            composite_score=composite,
+        )
+    finally:
+        restore_defaults()
 
 
 def run_sweep(scenarios: list[Scenario]) -> list[SweepResult]:
@@ -434,7 +448,6 @@ def run_sweep(scenarios: list[Scenario]) -> list[SweepResult]:
             )
             results.append(result)
 
-    restore_defaults()
     return results
 
 
@@ -480,7 +493,6 @@ def main() -> None:
             cb_module.HALF_OPEN_THRESHOLD,
             cb_module.NO_FILES_MODIFIED_THRESHOLD,
         )
-        restore_defaults()
 
         if args.metric == "false_trip_rate":
             print(f"{result.false_trip_rate:.4f}")
@@ -497,11 +509,10 @@ def main() -> None:
         print(f"\nTop {args.top} parameter combinations:\n")
         print_top_results(results, args.top)
 
-        # Show baseline comparison
-        baseline = evaluate_params(scenarios, 3, 5, 2, 2, 4)
-        restore_defaults()
+        # Show pre-tuning baseline comparison
+        baseline = evaluate_params(scenarios, *_PRE_TUNING_BASELINE)
         print(
-            f"\nBaseline (current defaults): FTR={baseline.false_trip_rate:.4f}, "
+            f"\nBaseline (pre-tuning): FTR={baseline.false_trip_rate:.4f}, "
             f"Latency={baseline.mean_true_trip_latency:.2f}, "
             f"Score={baseline.composite_score:.4f}"
         )
@@ -511,11 +522,10 @@ def main() -> None:
     print("Running parameter sweep...")
     results = run_sweep(scenarios)
     best = max(results, key=lambda r: r.composite_score)
-    baseline = evaluate_params(scenarios, 3, 5, 2, 2, 4)
-    restore_defaults()
+    baseline = evaluate_params(scenarios, *_PRE_TUNING_BASELINE)
 
     print(
-        f"\nBaseline: FTR={baseline.false_trip_rate:.4f}, "
+        f"\nBaseline (pre-tuning): FTR={baseline.false_trip_rate:.4f}, "
         f"Latency={baseline.mean_true_trip_latency:.2f}, "
         f"Score={baseline.composite_score:.4f}"
     )
