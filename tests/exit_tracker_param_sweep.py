@@ -102,7 +102,7 @@ def build_scenarios() -> list[Scenario]:
     # === Premature-exit scenarios ===
 
     # P1: Early spurious COMPLETE — iter 2 COMPLETE, then 6 productive, then genuine
-    steps_p1 = [FakeAnalysis() for _ in range(1)]
+    steps_p1 = [FakeAnalysis()]
     steps_p1.append(FakeAnalysis(raw_status="COMPLETE"))  # spurious at iter 2
     steps_p1.extend([FakeAnalysis() for _ in range(6)])
     steps_p1.append(FakeAnalysis(raw_status="COMPLETE"))  # genuine at iter 9
@@ -283,22 +283,22 @@ def run_scenario(
 
     exit_iteration is None if no exit fired.
     """
-    tmp = tempfile.mkdtemp()
-    state_path = Path(tmp) / "exit_signals.json"
-    tracker = ExitTracker(state_path=state_path)
+    with tempfile.TemporaryDirectory() as tmp:
+        state_path = Path(tmp) / "exit_signals.json"
+        tracker = ExitTracker(state_path=state_path)
 
-    for i, analysis in enumerate(scenario.steps):
-        iteration = i + 1
-        tracker.update(iteration, analysis)
+        for i, analysis in enumerate(scenario.steps):
+            iteration = i + 1
+            tracker.update(iteration, analysis)
 
-        # For E2, supply fitness on the last step
-        fitness = None
-        if fitness_on_last and iteration == len(scenario.steps):
-            fitness = (True, [])
+            # For E2, supply fitness on the last step
+            fitness = None
+            if fitness_on_last and iteration == len(scenario.steps):
+                fitness = (True, [])
 
-        decision = tracker.evaluate(analysis=analysis, fitness_results=fitness)
-        if decision.should_exit:
-            return iteration, decision.reason
+            decision = tracker.evaluate(analysis=analysis, fitness_results=fitness)
+            if decision.should_exit:
+                return iteration, decision.reason
 
     return None, ""
 
@@ -354,11 +354,20 @@ def _patch_update_with_windowing(done_window: int | None, test_window: int | Non
 
     def windowed_update(self: ExitTracker, iteration: int, analysis: object) -> None:
         original_update(self, iteration, analysis)  # type: ignore[arg-type]
+        # Trim after original update (which already called _save)
+        needs_resave = False
         if done_window is not None:
-            self._signals.done_signals = self._signals.done_signals[-done_window:]
+            trimmed = self._signals.done_signals[-done_window:]
+            if len(trimmed) != len(self._signals.done_signals):
+                self._signals.done_signals = trimmed
+                needs_resave = True
         if test_window is not None:
-            self._signals.test_only_loops = self._signals.test_only_loops[-test_window:]
-        self._save()
+            trimmed = self._signals.test_only_loops[-test_window:]
+            if len(trimmed) != len(self._signals.test_only_loops):
+                self._signals.test_only_loops = trimmed
+                needs_resave = True
+        if needs_resave:
+            self._save()
 
     ExitTracker.update = windowed_update  # type: ignore[assignment]
 
@@ -398,7 +407,6 @@ def classify_result(
     if scenario.category == "premature":
         # For premature scenarios, exit should not fire before earliest_valid_exit
         if actual_exit is None:
-            # No exit fired — correct for scenarios where expected is None
             return "correct" if expected is None else "late"
         if earliest is not None and actual_exit < earliest:
             return "premature"
@@ -406,6 +414,8 @@ def classify_result(
             return "correct"
         if expected is not None and actual_exit > expected:
             return "late"
+        # Exit at/after earliest_valid_exit with expected=None: scenario considers
+        # this acceptable (e.g. P3 exits at iter 9 when earliest=9)
         return "correct"
 
     if scenario.category == "correct":
@@ -595,9 +605,8 @@ def main() -> None:
             ExitTracker.MAX_DONE_SIGNALS,
             ExitTracker.DUAL_CONDITION_FLOOR,
         )
-        metric_val = getattr(
-            result, args.metric if args.metric != "composite" else "composite_score"
-        )
+        attr_map = {"composite": "composite_score"}
+        metric_val = getattr(result, attr_map.get(args.metric, args.metric))
         print(f"{metric_val:.4f}")
         return
 
