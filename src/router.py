@@ -254,6 +254,7 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("parallel", 0.4),
         ("worktree", 0.5),
         ("concurrent", 0.3),
+        ("concurrently", 0.3),
         ("wave", 0.3),
         ("simultaneously", 0.3),
     ],
@@ -302,7 +303,7 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("polish", 0.6),
         ("clean up", 0.4),
         ("simplify", 0.4),
-        ("security review", 0.5),
+        ("security review", 0.65),
         ("fix issues", 0.3),
         ("tidy", 0.3),
     ],
@@ -342,12 +343,23 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
     best_score = 0.0
 
     for skill, keywords in _KEYWORD_SCORES.items():
-        score = sum(weight for kw, weight in keywords if kw in normalized)
+        # Sort longest-first so we can skip substrings of already-matched keywords
+        sorted_kws = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
+        matched: list[str] = []
+        score = 0.0
+        for kw, weight in sorted_kws:
+            if not re.search(r"\b" + re.escape(kw) + r"\b", normalized):
+                continue
+            # Skip if this keyword is a substring of an already-matched keyword
+            if any(kw in m for m in matched):
+                continue
+            matched.append(kw)
+            score += weight
         if score > best_score:
             best_score = score
             best_skill = skill
 
-    if best_score >= 0.6:
+    if best_score >= 0.3:
         return RouterResult(
             skill=best_skill,
             confidence=min(best_score, 1.0),

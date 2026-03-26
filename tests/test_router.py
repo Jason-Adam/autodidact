@@ -145,7 +145,7 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.tier, 2)
 
     def test_plan_routes_to_plan(self) -> None:
-        r = classify("create an implementation plan for the auth feature")
+        r = classify("design an implementation plan for the auth feature")
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 2)
 
@@ -274,7 +274,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
                 "### Phase 2: B\n- [ ] Edit `src/a.py`\n"
                 "### Phase 3: C\n- [ ] Edit `src/c.py`\n"
             )
-            r = classify("implement the plan", cwd=tmpdir)
+            r = classify("do the thing now", cwd=tmpdir)
             self.assertEqual(r.skill, "autodidact-run")
             self.assertIn("new.md", r.reasoning)
 

@@ -1,0 +1,34 @@
+[
+  {"prompt": "use parallel worktrees to process the migrations concurrently", "expected_skill": "fleet"},
+  {"prompt": "wave-based parallel execution across isolated worktrees", "expected_skill": "fleet"},
+
+  {"prompt": "multi-step deployment: build, test, then push", "expected_skill": "run"},
+  {"prompt": "orchestrate the sequence of database changes", "expected_skill": "run"},
+
+  {"prompt": "continue this multi-session campaign tomorrow", "expected_skill": "campaign"},
+  {"prompt": "long-running multi-session effort to rewrite tests", "expected_skill": "campaign"},
+
+  {"prompt": "clarify the ambiguous requirements and plan the approach", "expected_skill": "plan"},
+  {"prompt": "investigate and explore how the billing system works", "expected_skill": "plan"},
+
+  {"prompt": "code review the authentication middleware", "expected_skill": "review"},
+  {"prompt": "audit and inspect the input validation logic", "expected_skill": "review"},
+
+  {"prompt": "polish and simplify the configuration loader", "expected_skill": "polish"},
+  {"prompt": "clean up the legacy code and tidy the imports", "expected_skill": "polish"},
+
+  {"prompt": "handoff document with session summary", "expected_skill": "handoff"},
+  {"prompt": "hand off context transfer for the refactoring work", "expected_skill": "handoff"},
+
+  {"prompt": "experiment to optimize the cache eviction metric", "expected_skill": "experiment"},
+  {"prompt": "benchmark and try different compression algorithms", "expected_skill": "experiment"},
+
+  {"prompt": "show token savings and learning stats", "expected_skill": "learn_status"},
+  {"prompt": "confidence stats and graduation candidates overview", "expected_skill": "learn_status"},
+
+  {"prompt": "write a function to parse CSV files", "expected_skill": "none"},
+  {"prompt": "debug the login page not loading", "expected_skill": "none"},
+  {"prompt": "the transplanted module needs explanation", "expected_skill": "none"},
+  {"prompt": "update the executor configuration file", "expected_skill": "none"},
+  {"prompt": "check if the planned maintenance window is correct", "expected_skill": "none"}
+]
