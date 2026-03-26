@@ -71,22 +71,27 @@ def score_prompt(
 
 def evaluate_corpus(
     corpus: list[dict[str, str]],
-    threshold: float = 0.6,
+    threshold: float = 0.3,
     weight_overrides: dict[str, list[tuple[str, float]]] | None = None,
     use_word_boundary: bool = False,
 ) -> dict:
     """Run a corpus through the heuristic and compute metrics.
 
     Returns dict with:
-      - accuracy: correct / total_routed
-      - escalation_rate: fell_through / total
-      - false_positive_rate: wrong_skill / total_routed
-      - per_skill: {skill: {tp, fp, fn, accuracy, ...}}
+      - accuracy: correct / total_routed (precision among routed prompts)
+      - escalation_rate: fell_through / total_expected_skill
+        (fraction of skill-targeted prompts that fell through to Tier 3)
+      - false_positive_rate: false_positives / total_none
+        (fraction of none-expected prompts incorrectly routed to a skill)
+      - routed_error_rate: wrong / total_routed
+        (fraction of routed prompts sent to the wrong skill)
+      - per_skill: {skill: {tp, fp, fn}}
       - details: list of per-prompt results
     """
     total = len(corpus)
     correct = 0
     wrong = 0
+    false_positives = 0  # expected none but routed to a skill
     fell_through = 0
     correct_fallthrough = 0  # expected none AND got none
 
@@ -118,6 +123,7 @@ def evaluate_corpus(
             correct_fallthrough += 1
         elif expected == "none" and predicted != "none":
             wrong += 1
+            false_positives += 1
             if predicted in per_skill:
                 per_skill[predicted]["fp"] += 1
         elif expected != "none" and predicted == "none":
@@ -136,17 +142,20 @@ def evaluate_corpus(
                 per_skill[expected]["fn"] += 1
 
     total_routed = correct + wrong
-    total_expected_skill = total - sum(1 for e in corpus if e["expected_skill"] == "none")
+    total_none = sum(1 for e in corpus if e["expected_skill"] == "none")
+    total_expected_skill = total - total_none
 
     return {
         "total": total,
         "correct": correct,
         "wrong": wrong,
+        "false_positives": false_positives,
         "fell_through": fell_through,
         "correct_fallthrough": correct_fallthrough,
         "accuracy": correct / total_routed if total_routed > 0 else 0.0,
         "escalation_rate": fell_through / total_expected_skill if total_expected_skill > 0 else 0.0,
-        "false_positive_rate": wrong / total_routed if total_routed > 0 else 0.0,
+        "false_positive_rate": false_positives / total_none if total_none > 0 else 0.0,
+        "routed_error_rate": wrong / total_routed if total_routed > 0 else 0.0,
         "per_skill": per_skill,
         "details": details,
     }
@@ -165,6 +174,7 @@ def print_metrics(metrics: dict, label: str = "Results") -> None:
     print(f"  Accuracy:           {metrics['accuracy']:.1%}")
     print(f"  Escalation rate:    {metrics['escalation_rate']:.1%}")
     print(f"  False positive rate:{metrics['false_positive_rate']:.1%}")
+    print(f"  Routed error rate: {metrics['routed_error_rate']:.1%}")
     print("\n  Per-skill breakdown:")
     for skill, counts in sorted(metrics["per_skill"].items()):
         total_expected = counts["tp"] + counts["fn"]
@@ -194,6 +204,7 @@ def sweep_threshold(
                 "accuracy": m["accuracy"],
                 "escalation_rate": m["escalation_rate"],
                 "false_positive_rate": m["false_positive_rate"],
+                "routed_error_rate": m["routed_error_rate"],
                 "correct": m["correct"],
                 "wrong": m["wrong"],
                 "fell_through": m["fell_through"],
