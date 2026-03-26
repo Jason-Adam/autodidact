@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+_MAX_PLAN_BYTES = 256 * 1024  # 256 KB cap for plan file reads
 
 
 @dataclass
@@ -19,6 +20,30 @@ class RouterResult:
     confidence: float
     tier: int
     reasoning: str = ""
+    model: str = ""
+
+
+SKILL_MODEL_MAP: dict[str, str] = {
+    # Haiku tier — cheap, fast
+    "learn_status": "haiku",
+    "forget": "haiku",
+    "direct": "haiku",
+    # Sonnet tier — standard work
+    "plan": "sonnet",
+    "run": "sonnet",
+    "fleet": "sonnet",
+    "review": "sonnet",
+    "polish": "sonnet",
+    "handoff": "sonnet",
+    "experiment": "sonnet",
+    "sync-thoughts": "sonnet",
+    "learn": "sonnet",
+    # Opus tier — complex reasoning
+    "campaign": "opus",
+    "loop": "opus",
+    "classify": "opus",
+    "do": "opus",
+}
 
 
 # ── Tier 0: Pattern Match ──────────────────────────────────────────────
@@ -75,7 +100,7 @@ def _tier1_active_state(cwd: str) -> RouterResult | None:
     for path, is_glob, skill, reasoning_tpl in _checks:
         if not path.exists():
             continue
-        files = list(path.glob("*.json")) if is_glob else [path]
+        files = sorted(path.glob("*.json"), reverse=True) if is_glob else [path]
         for f in files:
             try:
                 data = json.loads(f.read_text())
@@ -135,14 +160,33 @@ def _phases_are_independent(phases: list[dict[str, list[str]]]) -> bool:
     """Check if phases touch disjoint file sets (parallelizable)."""
     if len(phases) < 2:
         return False
-    seen: set[str] = set()
-    for phase in phases:
-        file_set = set(phase["files"])
-        if file_set & seen:
-            return False
-        seen |= file_set
+
     # Need at least some file references to judge independence
-    return len(seen) > 0
+    all_files: set[str] = set()
+    for phase in phases:
+        all_files.update(phase.get("files", []))
+    if not all_files:
+        return False
+
+    from src.task_graph import TaskGraph, TaskNode
+
+    graph = TaskGraph(max_per_wave=len(phases))  # no wave-size limit for this check
+    for i, phase in enumerate(phases):
+        graph.add_task(
+            TaskNode(
+                task_id=f"phase-{i}",
+                description="",
+                target_files=phase.get("files", []),
+            )
+        )
+
+    try:
+        waves = graph.partition_waves()
+    except ValueError:
+        return False
+
+    # All phases in exactly one wave = fully independent (no overlaps)
+    return len(waves) == 1
 
 
 def _tier25_plan_analysis(cwd: str) -> RouterResult | None:
@@ -159,7 +203,7 @@ def _tier25_plan_analysis(cwd: str) -> RouterResult | None:
     if not plan_files:
         return None
 
-    text = plan_files[0].read_text()
+    text = plan_files[0].read_bytes()[:_MAX_PLAN_BYTES].decode("utf-8", errors="replace")
     phases = _parse_plan_phases(text)
     phase_count = len(phases)
 
@@ -375,6 +419,14 @@ def select_loop_mode(cwd: str) -> str:
     return "run"
 
 
+def _assign_model(result: RouterResult) -> RouterResult:
+    """Assign model tier based on skill. Mutates and returns result."""
+    # Strip autodidact- prefix to look up base skill name
+    base = result.skill.removeprefix("autodidact-")
+    result.model = SKILL_MODEL_MAP.get(base, "sonnet")
+    return result
+
+
 def classify(prompt: str, cwd: str = "") -> RouterResult:
     """Cost-ascending classification. Tiers 0-2 are deterministic.
 
@@ -386,22 +438,22 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
     skills (e.g. ``crsdigital:create-plan``) are also available.
     """
     # Cost-ascending: run each tier until one matches.
-    resolvers: tuple[Callable[[], RouterResult | None], ...] = (
-        lambda: _tier0_pattern_match(prompt),
-        lambda: _tier1_active_state(cwd),
-        lambda: _tier2_keyword_heuristic(prompt),
-        lambda: _tier25_plan_analysis(cwd),
-    )
-    for resolver in resolvers:
-        result = resolver()
+    for result in (
+        _tier0_pattern_match(prompt),
+        _tier1_active_state(cwd),
+        _tier2_keyword_heuristic(prompt),
+        _tier25_plan_analysis(cwd),
+    ):
         if result:
             result.skill = _qualify_skill(result.skill)
-            return result
+            return _assign_model(result)
 
     # Tier 3: Signal for LLM classification (no prefix needed)
-    return RouterResult(
-        skill="classify",
-        confidence=0.0,
-        tier=3,
-        reasoning="No deterministic match; LLM classification needed",
+    return _assign_model(
+        RouterResult(
+            skill="classify",
+            confidence=0.0,
+            tier=3,
+            reasoning="No deterministic match; LLM classification needed",
+        )
     )

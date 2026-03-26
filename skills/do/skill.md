@@ -21,7 +21,7 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 
 ## Protocol
 
-1. **If the hook already classified the request** (Tiers 0-2), the routing banner will appear in context. Follow the routing decision — invoke the named skill directly.
+1. **If the hook already classified the request** (Tiers 0-2), the routing banner will appear in context as `AUTODIDACT ROUTING: skill=<name> model=<haiku|sonnet|opus> confidence=<float> tier=<int>`. Follow the routing decision — invoke the named skill directly. When spawning subagents, pass the `model` field to the Agent tool's `model` parameter.
 
 2. **If classification reached Tier 3** (no deterministic match), classify the user's intent using this complexity rubric:
 

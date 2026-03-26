@@ -54,6 +54,22 @@ def main() -> None:
     except Exception:
         pass  # Graceful degradation
 
+    # Router dispatch (Tiers 0-2)
+    try:
+        from src.router import classify as route_classify
+
+        cwd = hook_input.get("cwd", "")
+        route_result = route_classify(prompt, cwd)
+        if route_result.tier < 3:
+            messages.append(
+                f"AUTODIDACT ROUTING: skill={route_result.skill}"
+                f" model={route_result.model}"
+                f" confidence={route_result.confidence}"
+                f" tier={route_result.tier}"
+            )
+    except Exception:
+        pass  # Graceful degradation
+
     output: dict = {}
     if messages:
         output["additionalContext"] = "\n\n".join(messages)
