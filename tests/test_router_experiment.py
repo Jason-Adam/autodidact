@@ -6,7 +6,6 @@ threshold and weight overrides, computing accuracy/escalation/FP metrics.
 
 from __future__ import annotations
 
-import copy
 import json
 import re
 import timeit
@@ -26,7 +25,7 @@ def load_corpus(path: Path) -> list[dict[str, str]]:
 
 def score_prompt(
     prompt: str,
-    threshold: float = 0.6,
+    threshold: float = 0.3,
     weight_overrides: dict[str, list[tuple[str, float]]] | None = None,
     use_word_boundary: bool = False,
 ) -> RouterResult | None:
@@ -35,7 +34,7 @@ def score_prompt(
     This reimplements the scoring logic so we can inject different parameters
     without modifying the production code.
     """
-    keywords = weight_overrides if weight_overrides else _KEYWORD_SCORES
+    keywords = weight_overrides if weight_overrides is not None else _KEYWORD_SCORES
     normalized = prompt.strip().lower()
     best_skill = ""
     best_score = 0.0
@@ -228,7 +227,7 @@ def sweep_keyword_weights(
             if new_weight < 0.05 or new_weight > 0.95:
                 continue
 
-            trial = copy.deepcopy(base_weights)
+            trial = {**base_weights, skill: list(base_weights[skill])}
             trial[skill][i] = (kw, new_weight)
             m = evaluate_corpus(corpus, threshold, trial, use_word_boundary)
 

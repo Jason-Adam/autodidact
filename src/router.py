@@ -336,19 +336,30 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
 }
 
 
+# Pre-compiled patterns and pre-sorted keyword lists (built once at import).
+_KEYWORD_PATTERNS: dict[str, list[tuple[str, re.Pattern[str], float]]] = {
+    skill: sorted(
+        [(kw, re.compile(r"\b" + re.escape(kw) + r"\b"), w) for kw, w in keywords],
+        key=lambda x: len(x[0]),
+        reverse=True,
+    )
+    for skill, keywords in _KEYWORD_SCORES.items()
+}
+
+_TIER2_THRESHOLD = 0.3
+
+
 def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
     """Score prompt against keyword tables. Low cost."""
     normalized = prompt.strip().lower()
     best_skill = ""
     best_score = 0.0
 
-    for skill, keywords in _KEYWORD_SCORES.items():
-        # Sort longest-first so we can skip substrings of already-matched keywords
-        sorted_kws = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
+    for skill, patterns in _KEYWORD_PATTERNS.items():
         matched: list[str] = []
         score = 0.0
-        for kw, weight in sorted_kws:
-            if not re.search(r"\b" + re.escape(kw) + r"\b", normalized):
+        for kw, pattern, weight in patterns:
+            if not pattern.search(normalized):
                 continue
             # Skip if this keyword is a substring of an already-matched keyword
             if any(kw in m for m in matched):
@@ -359,7 +370,7 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
             best_score = score
             best_skill = skill
 
-    if best_score >= 0.3:
+    if best_score >= _TIER2_THRESHOLD:
         return RouterResult(
             skill=best_skill,
             confidence=min(best_score, 1.0),
