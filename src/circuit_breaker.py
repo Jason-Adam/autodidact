@@ -138,6 +138,9 @@ class CircuitBreaker:
             else:
                 self.state.consecutive_same_error = 1
             self.state.last_error_signature = error_sig
+        else:
+            self.state.consecutive_same_error = 0
+            self.state.last_error_signature = ""
 
         # --- Permission denials ---
         if analysis.has_permission_denials:
