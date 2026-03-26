@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from src.git_utils import resolve_main_repo
+from src.git_utils import resolve_main_repo, resolve_project_root
 
 if TYPE_CHECKING:
     from src.task_graph import TaskGraph
@@ -157,8 +157,11 @@ class WorktreeManager:
     """Manages git worktrees and fleet state for parallel execution."""
 
     def __init__(self, project_root: Path, state_root: Path | None = None) -> None:
-        # Resolve to main repo for git operations (prevents nested worktrees)
+        # Resolve to main repo for git worktree add/remove (prevents nested worktrees)
         self.project_root = Path(resolve_main_repo(str(project_root)))
+        # Resolve to the spawning worktree for merge operations —
+        # fleet workers branch from main but merge back into the caller's branch
+        self.merge_root = Path(resolve_project_root(str(project_root)))
         # State lives in the caller's directory (preserves per-worktree isolation)
         self._state_root = state_root or project_root
         self.state: FleetState | None = self._load_state()
@@ -327,8 +330,13 @@ class WorktreeManager:
         worker.status = "cleaned"
         self._save_state()
 
-    def merge_worktree(self, task_id: str, target_branch: str = "") -> bool:
-        """Merge a worktree branch into target. Returns True on success."""
+    def merge_worktree(self, task_id: str) -> bool:
+        """Merge a worker branch into the spawning worktree's branch.
+
+        Runs git merge in merge_root (the worktree that launched the fleet),
+        not project_root (the main repo). On failure, aborts the merge to
+        leave the working tree clean for subsequent merges.
+        """
         if self.state is None:
             return False
 
@@ -340,18 +348,9 @@ class WorktreeManager:
         if not worker:
             return False
 
-        if not target_branch:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=str(self.project_root),
-                capture_output=True,
-                text=True,
-            )
-            target_branch = result.stdout.strip()
-
         result = subprocess.run(
             ["git", "merge", "--no-edit", "--", worker.branch],
-            cwd=str(self.project_root),
+            cwd=str(self.merge_root),
             capture_output=True,
             text=True,
         )
@@ -360,10 +359,17 @@ class WorktreeManager:
             worker.status = "merged"
             self._save_state()
             return True
-        else:
-            worker.status = "failed"
-            self._save_state()
-            return False
+
+        # Merge failed — abort to leave working tree clean
+        subprocess.run(
+            ["git", "merge", "--abort"],
+            cwd=str(self.merge_root),
+            capture_output=True,
+            text=True,
+        )
+        worker.status = "failed"
+        self._save_state()
+        return False
 
     def cleanup_all(self) -> int:
         """Remove all fleet worktrees. Returns count cleaned."""
@@ -374,10 +380,11 @@ class WorktreeManager:
                     self.destroy_worktree(worker.task_id)
                     count += 1
 
-        # Also clean any orphaned worktrees
+        # Also clean any orphaned worktrees (with containment check)
         if self.worktree_base.exists():
+            base_resolved = str(self.worktree_base.resolve())
             for wt_dir in self.worktree_base.glob("fleet-*"):
-                if wt_dir.is_dir():
+                if wt_dir.is_dir() and str(wt_dir.resolve()).startswith(base_resolved):
                     subprocess.run(
                         ["git", "worktree", "remove", str(wt_dir), "--force"],
                         cwd=str(self.project_root),
@@ -502,7 +509,7 @@ class WorktreeManager:
         # Check for committed changes on the worker's branch
         try:
             result = subprocess.run(
-                ["git", "log", "--oneline", f"HEAD..{worker.branch}"],
+                ["git", "log", "--oneline", f"HEAD..{worker.branch}", "--"],
                 cwd=str(self.project_root),
                 capture_output=True,
                 text=True,
