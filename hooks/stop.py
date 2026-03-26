@@ -24,12 +24,10 @@ _PENDING_FIX_PATH = _STATE_DIR / "pending_fix.json"
 
 def _session_had_task_success(session_id: str) -> bool:
     """Check if any task completed successfully during this session."""
-    if not _TASK_SUCCESS_PATH.exists():
-        return False
     try:
         data = json.loads(_TASK_SUCCESS_PATH.read_text())
         return data.get("session_id") == session_id
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, FileNotFoundError):
         return False
 
 
@@ -53,13 +51,10 @@ def main() -> None:
     try:
         db = LearningDB()
 
-        # Apply time-based decay to all learnings touched this session
+        # Apply time-based decay to all learnings accessed this session
         if session_id:
-            rows = db.conn.execute(
-                "SELECT id FROM learnings WHERE session_id = ?",
-                (session_id,),
-            ).fetchall()
-            learning_ids = [r["id"] for r in rows]
+            accessed = db.get_accessed_in_session(session_id)
+            learning_ids = [r["id"] for r in accessed]
             if learning_ids:
                 db.time_decay(learning_ids)
 
@@ -67,7 +62,6 @@ def main() -> None:
             # to learnings that were accessed (surfaced as context) but
             # didn't contribute to a successful outcome
             if not _session_had_task_success(session_id):
-                accessed = db.get_accessed_in_session(session_id)
                 for entry in accessed:
                     db.decay(entry["id"], amount=0.05)
 

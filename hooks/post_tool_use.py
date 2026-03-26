@@ -134,11 +134,13 @@ def _load_pending_fix() -> dict | None:
     return None
 
 
-def _save_pending_fix(signature: str, learning_id: int) -> None:
+def _save_pending_fix(signature: str, learning_id: int, session_id: str) -> None:
     """Save a marker that we surfaced a fix for this error signature."""
     with contextlib.suppress(OSError):
         _PENDING_FIX_PATH.write_text(
-            json.dumps({"signature": signature, "learning_id": learning_id})
+            json.dumps(
+                {"signature": signature, "learning_id": learning_id, "session_id": session_id}
+            )
         )
 
 
@@ -332,7 +334,11 @@ def main() -> None:
 
             # Check if a previous fix suggestion failed to resolve the error
             pending_fix = _load_pending_fix()
-            if pending_fix and pending_fix.get("signature") == signature:
+            if (
+                pending_fix
+                and pending_fix.get("signature") == signature
+                and pending_fix.get("session_id", "") == session_id
+            ):
                 # Same error reappeared after we surfaced a fix — decay that learning
                 db.decay(pending_fix["learning_id"], amount=0.10)
                 _clear_pending_fix()
@@ -348,7 +354,7 @@ def main() -> None:
                 messages.append(msg)
                 # Track that we surfaced this fix — if the same error
                 # recurs next tool use, we'll decay it
-                _save_pending_fix(signature, known["id"])
+                _save_pending_fix(signature, known["id"], session_id)
             else:
                 # Record new error
                 db.record(
@@ -365,10 +371,9 @@ def main() -> None:
                     outcome="failure",
                 )
                 _clear_pending_fix()
-        else:
-            # Non-error tool use clears any pending fix tracker
-            # (the fix worked — the error didn't recur)
-            _clear_pending_fix()
+        # Non-error tool uses (Read, Edit, Grep) no longer clear pending fix.
+        # This lets the decay fire even when fix attempts involve intermediate
+        # tool calls. The pending fix is cleaned up at session end by stop.py.
 
         # Per-edit quality checks
         if tool_name in ("Edit", "Write") and not is_error:
