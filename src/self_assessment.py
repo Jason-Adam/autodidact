@@ -50,20 +50,11 @@ class AssessmentResult:
         strategy is failing, and low unblocking_paths confirms there are no
         known ways to recover — a true dead end worth pivoting away from.
         """
-        approach = None
-        unblocking = None
-        for s in self.scores:
-            if s.name == "approach_viability":
-                approach = s.clarity
-            elif s.name == "unblocking_paths":
-                unblocking = s.clarity
-        if approach is None:
+        by_name = {s.name: s.clarity for s in self.scores}
+        approach = by_name.get("approach_viability")
+        if approach is None or approach >= PIVOT_THRESHOLD:
             return False
-        if approach >= PIVOT_THRESHOLD:
-            return False
-        # If unblocking_paths is missing, fall back to approach-only check
-        if unblocking is None:
-            return True
+        unblocking = by_name.get("unblocking_paths", 0.0)
         return unblocking < UNBLOCKING_THRESHOLD
 
 

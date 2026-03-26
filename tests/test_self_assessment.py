@@ -145,14 +145,6 @@ class TestScoreAssessment(unittest.TestCase):
 
 
 class TestAssessmentResult(unittest.TestCase):
-    def test_should_pivot_when_approach_low(self):
-        scores = [
-            DimensionScore("approach_viability", 0.3, 0.30),
-            DimensionScore("blocker_id", 0.8, 0.35),
-        ]
-        result = AssessmentResult(scores=scores, overall_clarity=0.5)
-        assert result.should_pivot is True
-
     def test_should_not_pivot_when_approach_high(self):
         scores = [
             DimensionScore("approach_viability", 0.8, 0.30),
@@ -187,7 +179,7 @@ class TestAssessmentResult(unittest.TestCase):
         assert result.should_pivot is True
 
     def test_should_pivot_when_approach_low_and_unblocking_missing(self):
-        """Low viability + missing unblocking dimension = fallback to pivot."""
+        """Missing unblocking_paths defaults to 0.0 (below threshold), so pivot fires."""
         scores = [
             DimensionScore("approach_viability", 0.3, 0.30),
             DimensionScore("blocker_id", 0.8, 0.35),
