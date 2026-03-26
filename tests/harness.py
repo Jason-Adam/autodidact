@@ -151,17 +151,19 @@ def run_synthetic(
             break
 
     if actual_stop is None:
-        # No signal fired — ISR = 0, not a false stop, lag = full length
-        return None, 0.0, False, float(len(history) - convergence_idx)
+        # No signal fired — ISR = 0, not a false stop, lag = iterations after convergence
+        return None, 0.0, False, float(len(history) - (convergence_idx + 1))
 
-    is_false_stop = actual_stop < convergence_idx
+    # convergence_idx is 0-based; the first prefix that includes the convergence
+    # entry has length convergence_idx + 1. Any stop at or before that is a false stop.
+    is_false_stop = actual_stop <= convergence_idx
     isr = (len(history) - actual_stop) / len(history)
-    lag = actual_stop - convergence_idx if not is_false_stop else 0.0
+    lag = actual_stop - (convergence_idx + 1) if not is_false_stop else 0.0
     return actual_stop, isr, is_false_stop, lag
 
 
 def _build_default_suite() -> list[SyntheticCase]:
-    """Build the default grid of synthetic histories (30+ cases, all 5+ categories)."""
+    """Build the default grid of synthetic histories (72 cases, 7 signal categories)."""
     cases: list[SyntheticCase] = []
 
     lengths = [20, 35, 50]

@@ -27,7 +27,10 @@ Collect via interview:
    - `plateau_threshold` (float, default 0.02) — minimum improvement to avoid plateau signal
    - `plateau_window` (int, default 2) — consecutive keeps to evaluate
    - `max_consecutive_discards` (int, default 3) — discard streak before convergence
+   - `alternating_window` (int, default 8) — last N entries for oscillation check
    - `alternating_ratio` (float, default 0.85) — oscillation detection threshold
+   - `code_repetition_window` (int, default 10) — entry window for file-touch frequency check
+   - `code_repetition_threshold` (int, default 4) — same file touched N+ times in window
    - `max_consecutive_interesting` (int, default 3) — interesting streak before convergence
    - `max_consecutive_thoughts` (int, default 3) — thought streak before convergence
    - `max_consecutive_timeouts` (int, default 2) — timeout streak before convergence
