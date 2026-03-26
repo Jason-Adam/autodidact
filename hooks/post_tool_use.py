@@ -134,11 +134,13 @@ def _load_pending_fix() -> dict | None:
     return None
 
 
-def _save_pending_fix(signature: str, learning_id: int) -> None:
+def _save_pending_fix(signature: str, learning_id: int, session_id: str) -> None:
     """Save a marker that we surfaced a fix for this error signature."""
     with contextlib.suppress(OSError):
         _PENDING_FIX_PATH.write_text(
-            json.dumps({"signature": signature, "learning_id": learning_id})
+            json.dumps(
+                {"signature": signature, "learning_id": learning_id, "session_id": session_id}
+            )
         )
 
 
@@ -332,7 +334,11 @@ def main() -> None:
 
             # Check if a previous fix suggestion failed to resolve the error
             pending_fix = _load_pending_fix()
-            if pending_fix and pending_fix.get("signature") == signature:
+            if (
+                pending_fix
+                and pending_fix.get("signature") == signature
+                and pending_fix.get("session_id", "") == session_id
+            ):
                 # Same error reappeared after we surfaced a fix — decay that learning
                 db.decay(pending_fix["learning_id"], amount=0.10)
                 _clear_pending_fix()
@@ -348,7 +354,7 @@ def main() -> None:
                 messages.append(msg)
                 # Track that we surfaced this fix — if the same error
                 # recurs next tool use, we'll decay it
-                _save_pending_fix(signature, known["id"])
+                _save_pending_fix(signature, known["id"], session_id)
             else:
                 # Record new error
                 db.record(

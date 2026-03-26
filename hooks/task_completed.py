@@ -45,7 +45,7 @@ def main() -> None:
         if session_id:
             accessed = db.get_accessed_in_session(session_id)
             for row in accessed:
-                db.boost(row["id"], amount=0.05)  # Small boost for task completion
+                db.boost(row["id"], amount=0.05)
                 db.set_outcome(row["id"], "success")
 
             # Mark that a task succeeded in this session
