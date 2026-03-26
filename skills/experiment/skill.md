@@ -23,6 +23,24 @@ Collect via interview:
 3. **Time budget per experiment** — default 120s wall clock
 4. **Total session budget** — default 3600s
 5. **Optimization direction** — minimize or maximize
+6. **Convergence overrides** (optional) — custom thresholds for convergence detection. If provided, pass to `ConvergenceThresholds`. Available overrides:
+   - `plateau_threshold` (float, default 0.01) — minimum improvement to avoid plateau signal
+   - `plateau_window` (int, default 3) — consecutive keeps to evaluate
+   - `max_consecutive_discards` (int, default 5) — discard streak before convergence
+   - `alternating_ratio` (float, default 0.8) — oscillation detection threshold
+   - `max_consecutive_interesting` (int, default 4) — interesting streak before convergence
+   - `max_consecutive_thoughts` (int, default 4) — thought streak before convergence
+   - `max_consecutive_timeouts` (int, default 2) — timeout streak before convergence
+
+### Phase 1b: Resume (optional)
+
+If a previous experiment exists at `.planning/experiments/{id}/state.json` with status `in_progress`:
+1. Load existing state via `ExperimentLog.load()`
+2. Verify safety branch still exists
+3. Display summary of progress so far (entries recorded, best metric, last experiment number)
+4. Ask user whether to resume or start fresh
+5. If resuming, skip to Phase 3 (Loop) starting from `last_experiment_num + 1`
+6. If starting fresh, proceed normally from Phase 1 Interview
 
 ### Phase 2: Baseline
 

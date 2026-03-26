@@ -51,11 +51,11 @@ class ExperimentLog:
 
     def start(self, config: ExperimentConfig) -> ExperimentState:
         """Initialize a new experiment session."""
-        exp_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        now = datetime.now(UTC)
         self._state = ExperimentState(
-            id=exp_id,
+            id=now.strftime("%Y%m%dT%H%M%SZ"),
             config=config,
-            created=datetime.now(UTC).isoformat(),
+            created=now.isoformat(),
         )
         self._write_tsv_header()
         self._save()
@@ -112,6 +112,12 @@ class ExperimentLog:
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
 
+    def set_safety_branch(self, branch_name: str) -> None:
+        """Set the safety branch name for this experiment session."""
+        assert self._state is not None
+        self._state.safety_branch = branch_name
+        self._save()
+
     def get_entries(self) -> list[ExperimentEntry]:
         """Return all recorded entries."""
         if self._state:
@@ -138,6 +144,7 @@ class ExperimentLog:
                     "duration_seconds",
                     "files_touched",
                     "description",
+                    "timestamp",
                 ]
             )
 
@@ -152,6 +159,7 @@ class ExperimentLog:
                     f"{entry.duration_seconds:.1f}",
                     ",".join(entry.files_touched),
                     entry.description,
+                    entry.timestamp,
                 ]
             )
 

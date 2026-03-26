@@ -106,7 +106,10 @@ class TestExperimentLog(unittest.TestCase):
         lines = tsv_content.strip().split("\n")
         self.assertEqual(len(lines), 3)  # header + baseline + entry
         self.assertIn("experiment_num", lines[0])
+        self.assertIn("timestamp", lines[0])
         self.assertIn("train.py", lines[2])
+        # Verify timestamp column is populated in data rows
+        self.assertIn("2026-01-01", lines[2])
 
     def test_load_nonexistent(self) -> None:
         empty_log = ExperimentLog(self.tmpdir / "nonexistent")
@@ -120,6 +123,13 @@ class TestExperimentLog(unittest.TestCase):
         state = self.log.load()
         assert state is not None
         self.assertEqual(len(state.entries), 6)  # baseline + 5
+
+    def test_set_safety_branch(self) -> None:
+        self.log.start(self.config)
+        self.log.set_safety_branch("experiment/safety-20260101T000000Z")
+        state = self.log.load()
+        assert state is not None
+        self.assertEqual(state.safety_branch, "experiment/safety-20260101T000000Z")
 
     def test_maximize_direction(self) -> None:
         config = ExperimentConfig(

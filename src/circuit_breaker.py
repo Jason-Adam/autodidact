@@ -33,6 +33,7 @@ SAME_ERROR_THRESHOLD = 5
 PERMISSION_DENIAL_THRESHOLD = 2
 HALF_OPEN_THRESHOLD = 2
 COOLDOWN_MINUTES = 30
+NO_FILES_MODIFIED_THRESHOLD = 4
 
 
 @dataclass
@@ -47,6 +48,7 @@ class CircuitState:
     consecutive_no_progress: int = 0
     consecutive_same_error: int = 0
     consecutive_permission_denials: int = 0
+    consecutive_no_files_modified: int = 0
     last_error_signature: str = ""
     opened_at: str = ""
 
@@ -61,6 +63,7 @@ class CircuitState:
             "consecutive_no_progress": self.consecutive_no_progress,
             "consecutive_same_error": self.consecutive_same_error,
             "consecutive_permission_denials": self.consecutive_permission_denials,
+            "consecutive_no_files_modified": self.consecutive_no_files_modified,
             "last_error_signature": self.last_error_signature,
             "opened_at": self.opened_at,
         }
@@ -77,6 +80,7 @@ class CircuitState:
             consecutive_no_progress=data.get("consecutive_no_progress", 0),
             consecutive_same_error=data.get("consecutive_same_error", 0),
             consecutive_permission_denials=data.get("consecutive_permission_denials", 0),
+            consecutive_no_files_modified=data.get("consecutive_no_files_modified", 0),
             last_error_signature=data.get("last_error_signature", ""),
             opened_at=data.get("opened_at", ""),
         )
@@ -127,12 +131,16 @@ class CircuitBreaker:
         then applies transition logic across CLOSED / HALF_OPEN / OPEN phases.
         """
         # --- Track same-error signature ---
-        error_sig = hashlib.md5(analysis.work_summary.encode()).hexdigest()[:12]  # noqa: S324
-        if error_sig == self.state.last_error_signature and analysis.work_summary:
-            self.state.consecutive_same_error += 1
+        if analysis.work_summary:
+            error_sig = hashlib.md5(analysis.work_summary.encode()).hexdigest()[:12]  # noqa: S324
+            if error_sig == self.state.last_error_signature:
+                self.state.consecutive_same_error += 1
+            else:
+                self.state.consecutive_same_error = 1
+            self.state.last_error_signature = error_sig
         else:
-            self.state.consecutive_same_error = 1 if analysis.work_summary else 0
-        self.state.last_error_signature = error_sig
+            self.state.consecutive_same_error = 0
+            self.state.last_error_signature = ""
 
         # --- Permission denials ---
         if analysis.has_permission_denials:
@@ -140,9 +148,16 @@ class CircuitBreaker:
         else:
             self.state.consecutive_permission_denials = 0
 
+        # --- Files-modified tracking ---
+        if analysis.files_modified > 0:
+            self.state.consecutive_no_files_modified = 0
+        else:
+            self.state.consecutive_no_files_modified += 1
+
         # --- Progress tracking ---
         if progress.is_productive:
             self.state.consecutive_no_progress = 0
+            self.state.consecutive_no_files_modified = 0
             if self.state.phase == BreakerPhase.HALF_OPEN.value:
                 self.state.phase = BreakerPhase.CLOSED.value
         elif analysis.asking_questions:
@@ -155,9 +170,6 @@ class CircuitBreaker:
 
         # Keep is_open in sync with phase
         self.state.is_open = self.state.phase == BreakerPhase.OPEN.value
-        if self.state.is_open and not self.state.opened_at:
-            self.state.opened_at = datetime.now(UTC).isoformat()
-
         self._save()
 
     def _apply_transitions(self) -> None:
@@ -169,6 +181,7 @@ class CircuitBreaker:
                 self.state.consecutive_no_progress >= NO_PROGRESS_THRESHOLD
                 or self.state.consecutive_same_error >= SAME_ERROR_THRESHOLD
                 or self.state.consecutive_permission_denials >= PERMISSION_DENIAL_THRESHOLD
+                or self.state.consecutive_no_files_modified >= NO_FILES_MODIFIED_THRESHOLD
             )
             if should_open:
                 self._open()
@@ -181,6 +194,7 @@ class CircuitBreaker:
                 self.state.consecutive_no_progress >= NO_PROGRESS_THRESHOLD
                 or self.state.consecutive_same_error >= SAME_ERROR_THRESHOLD
                 or self.state.consecutive_permission_denials >= PERMISSION_DENIAL_THRESHOLD
+                or self.state.consecutive_no_files_modified >= NO_FILES_MODIFIED_THRESHOLD
             )
             if should_open:
                 self._open()
@@ -206,6 +220,7 @@ class CircuitBreaker:
             self.state.consecutive_no_progress = 0
             self.state.consecutive_same_error = 0
             self.state.consecutive_permission_denials = 0
+            self.state.consecutive_no_files_modified = 0
             self._save()
 
     @property

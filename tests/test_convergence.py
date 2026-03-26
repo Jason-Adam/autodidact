@@ -90,6 +90,29 @@ class TestConvergence(unittest.TestCase):
 
     # ── Alternating ──────────────────────────────────────────────────
 
+    def test_alternating_custom_ratio(self) -> None:
+        from src.convergence import ConvergenceThresholds
+
+        # Imperfect alternation: ratio = 3/5 = 0.6
+        entries = [
+            _make_entry(1, "keep"),
+            _make_entry(2, "keep"),  # no alternation
+            _make_entry(3, "discard"),
+            _make_entry(4, "keep"),
+            _make_entry(5, "keep"),  # no alternation
+            _make_entry(6, "discard"),
+        ]
+        # Default ratio 0.8 should NOT fire (3/5 = 0.6 < 0.8)
+        signals = detect_signals(entries)
+        types = [s.signal_type for s in signals]
+        self.assertNotIn("alternating", types)
+
+        # With a lower threshold, it should fire
+        low_threshold = ConvergenceThresholds(alternating_ratio=0.5)
+        signals = detect_signals(entries, low_threshold)
+        types = [s.signal_type for s in signals]
+        self.assertIn("alternating", types)
+
     def test_alternating_detected(self) -> None:
         entries = [
             _make_entry(1, "keep"),
@@ -127,6 +150,58 @@ class TestConvergence(unittest.TestCase):
         signals = detect_signals(entries)
         types = [s.signal_type for s in signals]
         self.assertIn("timeout_streak", types)
+
+    # ── Consecutive interesting ────────────────────────────────────────
+
+    def test_consecutive_interesting_detected(self) -> None:
+        entries = [
+            _make_entry(1, "keep"),
+            _make_entry(2, "interesting"),
+            _make_entry(3, "interesting"),
+            _make_entry(4, "interesting"),
+            _make_entry(5, "interesting"),
+        ]
+        signals = detect_signals(entries)
+        types = [s.signal_type for s in signals]
+        self.assertIn("consecutive_interesting", types)
+
+    def test_consecutive_interesting_broken_by_keep(self) -> None:
+        entries = [
+            _make_entry(1, "interesting"),
+            _make_entry(2, "interesting"),
+            _make_entry(3, "keep"),
+            _make_entry(4, "interesting"),
+            _make_entry(5, "interesting"),
+        ]
+        signals = detect_signals(entries)
+        types = [s.signal_type for s in signals]
+        self.assertNotIn("consecutive_interesting", types)
+
+    # ── Consecutive thoughts ──────────────────────────────────────────
+
+    def test_consecutive_thoughts_detected(self) -> None:
+        entries = [
+            _make_entry(1, "keep"),
+            _make_entry(2, "thought"),
+            _make_entry(3, "thought"),
+            _make_entry(4, "thought"),
+            _make_entry(5, "thought"),
+        ]
+        signals = detect_signals(entries)
+        types = [s.signal_type for s in signals]
+        self.assertIn("consecutive_thoughts", types)
+
+    def test_consecutive_thoughts_broken_by_discard(self) -> None:
+        entries = [
+            _make_entry(1, "thought"),
+            _make_entry(2, "thought"),
+            _make_entry(3, "discard"),
+            _make_entry(4, "thought"),
+            _make_entry(5, "thought"),
+        ]
+        signals = detect_signals(entries)
+        types = [s.signal_type for s in signals]
+        self.assertNotIn("consecutive_thoughts", types)
 
     # ── Multiple signals ─────────────────────────────────────────────
 
