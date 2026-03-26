@@ -365,10 +365,9 @@ def main() -> None:
                     outcome="failure",
                 )
                 _clear_pending_fix()
-        else:
-            # Non-error tool use clears any pending fix tracker
-            # (the fix worked — the error didn't recur)
-            _clear_pending_fix()
+        # Non-error tool uses (Read, Edit, Grep) no longer clear pending fix.
+        # This lets the decay fire even when fix attempts involve intermediate
+        # tool calls. The pending fix is cleaned up at session end by stop.py.
 
         # Per-edit quality checks
         if tool_name in ("Edit", "Write") and not is_error:

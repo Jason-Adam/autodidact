@@ -53,13 +53,10 @@ def main() -> None:
     try:
         db = LearningDB()
 
-        # Apply time-based decay to all learnings touched this session
+        # Apply time-based decay to all learnings accessed this session
         if session_id:
-            rows = db.conn.execute(
-                "SELECT id FROM learnings WHERE session_id = ?",
-                (session_id,),
-            ).fetchall()
-            learning_ids = [r["id"] for r in rows]
+            accessed = db.get_accessed_in_session(session_id)
+            learning_ids = [r["id"] for r in accessed]
             if learning_ids:
                 db.time_decay(learning_ids)
 

@@ -40,14 +40,11 @@ def main() -> None:
     try:
         db = LearningDB()
 
-        # Boost learnings that were injected during this task's session
+        # Boost learnings that were accessed (injected) during this session
         # (they were presumably helpful if the task completed successfully)
         if session_id:
-            rows = db.conn.execute(
-                "SELECT id FROM learnings WHERE session_id = ?",
-                (session_id,),
-            ).fetchall()
-            for row in rows:
+            accessed = db.get_accessed_in_session(session_id)
+            for row in accessed:
                 db.boost(row["id"], amount=0.05)  # Small boost for task completion
                 db.set_outcome(row["id"], "success")
 
