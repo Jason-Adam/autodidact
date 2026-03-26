@@ -42,7 +42,7 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 
 | Layer | Count | Description |
 |-------|-------|-------------|
-| **Core library** | 20 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner |
+| **Core library** | 21 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
 | **Hooks** | 8 | Python scripts on Claude Code lifecycle events (session start, tool use, compaction, stop) |
 | **Skills** | 11 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
 | **Agents** | 12 | Specialized personas: interviewer, fleet-worker, quality-scorer, python-engineer, code-reviewer, code-simplifier, security-reviewer, and 5 research agents |
@@ -120,7 +120,7 @@ The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` 
 uv run python3 -m pytest tests/ -v
 ```
 
-355 tests covering the learning DB, confidence math, router classification, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
+392 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
 
 ## Design principles
 
