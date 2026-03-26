@@ -27,12 +27,39 @@ Before dispatching new work, check for interrupted state:
 2. Update `active.json` with recovered state
 3. Continue normal fleet execution from the recovered state
 
-### 1. Decompose
+### 1. Decompose into TaskNodes
 
-Break the task into independent units. Each unit must:
-- Touch different files (no overlapping edits)
-- Be completable in isolation
-- Have clear success criteria
+Break the task into independent units. For each unit, declare:
+- **task_id**: Short identifier (e.g., "auth", "billing", "tests")
+- **description**: What to do
+- **target_files**: Files to create/modify
+- **depends_on**: task_ids that must complete first (if any)
+- **success criteria**: How to verify completion
+
+### 1.5. Validate Wave
+
+Check that no two tasks in the same wave claim the same file. Use `WorktreeManager.validate_wave()` if uncertain.
+
+### 1.6. Auto-Partition Waves
+
+Use the dependency graph to compute optimal wave structure:
+```bash
+python3 -c "
+import sys, json; sys.path.insert(0, 'REPO_PATH')
+from src.worktree import WorktreeManager
+from pathlib import Path
+mgr = WorktreeManager(Path('CWD'))
+tasks = [
+    {'task_id': 'ID1', 'description': 'DESC1', 'target_files': ['file1.py'], 'depends_on': []},
+    {'task_id': 'ID2', 'description': 'DESC2', 'target_files': ['file2.py'], 'depends_on': ['ID1']},
+]
+waves = mgr.auto_partition_waves(tasks)
+for i, wave in enumerate(waves, 1):
+    print(f'Wave {i}: {[t[\"task_id\"] for t in wave]}')
+"
+```
+
+Review the computed wave structure. Override only if the algorithm missed a semantic dependency not captured by file overlap or explicit depends_on.
 
 ### 2. Create Worktrees
 

@@ -8,10 +8,15 @@ for parallel task execution. Persists fleet state to
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.task_graph import TaskGraph
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +26,25 @@ WORKTREE_DIR = ".worktrees"
 BRANCH_PREFIX = "fleet"
 STATE_DIR = ".planning/fleet"
 STATE_FILE = "active.json"
+
+_FILE_EXT_PATTERN = re.compile(
+    r"`([^`]+\.(?:py|ts|js|md|json|yaml|yml|toml|sql|sh))`"
+    r"|(\b[\w./\-]+\.(?:py|ts|js|md|json|yaml|yml|toml|sql|sh)\b)"
+)
+
+
+def extract_file_references(text: str) -> list[str]:
+    """Extract file path references from free-form text.
+
+    Matches both backtick-quoted paths and bare paths with known extensions.
+    Returns deduplicated list preserving first-seen order.
+    """
+    seen: dict[str, None] = {}
+    for m in _FILE_EXT_PATTERN.finditer(text):
+        path = m.group(1) or m.group(2)
+        if path and path not in seen:
+            seen[path] = None
+    return list(seen)
 
 
 # ── State Model ─────────────────────────────────────────────────────────
@@ -34,6 +58,8 @@ class WorkerState:
     path: str
     status: str = "active"  # active | completed | merged | failed | cleaned
     brief: str | None = None
+    target_files: list[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -43,6 +69,8 @@ class WorkerState:
             "path": self.path,
             "status": self.status,
             "brief": self.brief,
+            "target_files": self.target_files,
+            "depends_on": self.depends_on,
         }
 
     @classmethod
@@ -54,6 +82,8 @@ class WorkerState:
             path=data["path"],
             status=data.get("status", "active"),
             brief=data.get("brief"),
+            target_files=data.get("target_files", []),
+            depends_on=data.get("depends_on", []),
         )
 
 
@@ -200,10 +230,16 @@ class WorktreeManager:
         description: str,
         task_id: str | None = None,
         base_ref: str = "HEAD",
+        target_files: list[str] | None = None,
     ) -> WorkerState:
         """Create an isolated worktree and register it in fleet state."""
         if task_id is None:
             task_id = uuid.uuid4().hex[:8]
+
+        # Auto-extract file targets from description if not provided
+        resolved_files = (
+            target_files if target_files is not None else extract_file_references(description)
+        )
 
         branch = f"{BRANCH_PREFIX}/{task_id}"
         wt_path = self.worktree_base / f"fleet-{task_id}"
@@ -222,6 +258,7 @@ class WorktreeManager:
             branch=branch,
             path=str(wt_path),
             status="active",
+            target_files=resolved_files,
         )
 
         # Register in current wave
@@ -364,6 +401,78 @@ class WorktreeManager:
 
     def is_active(self) -> bool:
         return self.state is not None and self.state.status == "in_progress"
+
+    def validate_wave(self, tasks: list[dict[str, Any]]) -> dict[str, Any]:
+        """Check proposed tasks for file-set overlaps before dispatch.
+
+        Args:
+            tasks: list of {"description": str, "target_files": list[str]}.
+                   If target_files is missing, auto-extracted from description.
+
+        Returns:
+            {"valid": bool, "conflicts": [{"files": list[str], "tasks": [int, int]}]}
+        """
+        # Resolve target files for each task
+        resolved: list[list[str]] = []
+        for task in tasks:
+            files = task.get("target_files") or extract_file_references(task.get("description", ""))
+            resolved.append(files)
+
+        # Pairwise intersection check
+        conflicts: list[dict[str, Any]] = []
+        for i in range(len(resolved)):
+            for j in range(i + 1, len(resolved)):
+                overlap = set(resolved[i]) & set(resolved[j])
+                if overlap:
+                    conflicts.append({"files": sorted(overlap), "tasks": [i, j]})
+
+        return {"valid": len(conflicts) == 0, "conflicts": conflicts}
+
+    def build_task_graph(self, tasks: list[dict[str, Any]], max_per_wave: int = 3) -> TaskGraph:
+        """Build a dependency graph from proposed tasks.
+
+        Args:
+            tasks: list of {
+                "task_id": str,
+                "description": str,
+                "target_files": list[str],  # optional, auto-extracted if missing
+                "depends_on": list[str],    # optional
+            }
+            max_per_wave: maximum tasks per wave
+
+        Returns:
+            TaskGraph ready for partition_waves() or validate()
+        """
+        from src.task_graph import TaskGraph, TaskNode
+
+        graph = TaskGraph(max_per_wave=max_per_wave)
+        for task in tasks:
+            files = task.get("target_files") or extract_file_references(task.get("description", ""))
+            node = TaskNode(
+                task_id=task["task_id"],
+                description=task.get("description", ""),
+                target_files=files,
+                depends_on=task.get("depends_on", []),
+            )
+            graph.add_task(node)
+        return graph
+
+    def auto_partition_waves(
+        self, tasks: list[dict[str, Any]], max_per_wave: int = 3
+    ) -> list[list[dict[str, Any]]]:
+        """Build graph, validate, partition, and return grouped tasks.
+
+        Returns list of waves, each wave being a list of task dicts.
+        Raises ValueError on cycle detection.
+        """
+        graph = self.build_task_graph(tasks, max_per_wave)
+        validation = graph.validate()
+        if not validation["valid"]:
+            raise ValueError(validation["error"])
+
+        wave_ids = graph.partition_waves()
+        task_map = {t["task_id"]: t for t in tasks}
+        return [[task_map[tid] for tid in wave] for wave in wave_ids]
 
     # ── Fleet Recovery ─────────────────────────────────────────────
 

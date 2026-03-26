@@ -353,5 +353,45 @@ class TestSelectLoopMode(unittest.TestCase):
             self.assertEqual(select_loop_mode(tmpdir), "run")
 
 
+class TestModelRouting(unittest.TestCase):
+    def test_classify_returns_model_field(self) -> None:
+        r = classify("fleet")
+        self.assertTrue(hasattr(r, "model"))
+        self.assertNotEqual(r.model, "")
+
+    def test_fleet_gets_sonnet(self) -> None:
+        r = classify("fleet")
+        self.assertEqual(r.model, "sonnet")
+
+    def test_campaign_gets_opus(self) -> None:
+        r = classify("/do campaign")
+        self.assertEqual(r.model, "opus")
+
+    def test_learn_status_gets_haiku(self) -> None:
+        r = classify("/do learn_status")
+        self.assertEqual(r.model, "haiku")
+
+    def test_forget_gets_haiku(self) -> None:
+        r = classify("/do forget")
+        self.assertEqual(r.model, "haiku")
+
+    def test_tier3_fallback_gets_opus(self) -> None:
+        r = classify("fix the bug in the login form")
+        self.assertEqual(r.model, "opus")
+
+    def test_unknown_skill_defaults_to_sonnet(self) -> None:
+        from src.router import RouterResult, _assign_model
+
+        r = _assign_model(RouterResult(skill="unknown-thing", confidence=0.5, tier=2))
+        self.assertEqual(r.model, "sonnet")
+
+    def test_all_known_skills_have_model(self) -> None:
+        from src.router import _AUTODIDACT_SKILLS, SKILL_MODEL_MAP
+
+        # Every autodidact skill should be in the model map
+        for skill in _AUTODIDACT_SKILLS:
+            self.assertIn(skill, SKILL_MODEL_MAP, f"Skill '{skill}' missing from SKILL_MODEL_MAP")
+
+
 if __name__ == "__main__":
     unittest.main()
