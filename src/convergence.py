@@ -26,9 +26,12 @@ class ConvergenceThresholds:
     plateau_window: int = 3  # N consecutive keeps to evaluate
     max_consecutive_discards: int = 5
     alternating_window: int = 6  # last N entries for oscillation check
+    alternating_ratio: float = 0.8  # oscillation detection threshold
     code_repetition_window: int = 10
     code_repetition_threshold: int = 3  # same file touched N+ times in window
     max_consecutive_timeouts: int = 2
+    max_consecutive_interesting: int = 4
+    max_consecutive_thoughts: int = 4
 
 
 @dataclass
@@ -56,6 +59,8 @@ def detect_signals(
         _detect_alternating,
         _detect_code_repetition,
         _detect_timeout_streak,
+        _detect_consecutive_interesting,
+        _detect_consecutive_thoughts,
     ]:
         result = detector(entries, thresholds)
         if result:
@@ -100,30 +105,43 @@ def _detect_plateau(
     return None
 
 
+def _detect_trailing_streak(
+    entries: list[ExperimentEntry],
+    target_statuses: set[str],
+    signal_type: str,
+    threshold: int,
+    label: str,
+) -> ConvergenceSignal | None:
+    """Generic trailing-streak detector. Fires when the last N entries all match target_statuses."""
+    count = 0
+    for entry in reversed(entries):
+        if entry.status in target_statuses:
+            count += 1
+        else:
+            break
+
+    if count >= threshold:
+        confidence = min(count / (threshold + 2), 1.0)
+        return ConvergenceSignal(
+            signal_type=signal_type,
+            confidence=confidence,
+            detail=f"{count} consecutive {label} (threshold {threshold})",
+        )
+    return None
+
+
 def _detect_consecutive_discards(
     entries: list[ExperimentEntry],
     thresholds: ConvergenceThresholds,
 ) -> ConvergenceSignal | None:
     """Fire when trailing entries are all discards or crashes."""
-    bad_statuses = {"discard", "crash"}
-    count = 0
-    for entry in reversed(entries):
-        if entry.status in bad_statuses:
-            count += 1
-        else:
-            break
-
-    if count >= thresholds.max_consecutive_discards:
-        confidence = min(count / (thresholds.max_consecutive_discards + 2), 1.0)
-        return ConvergenceSignal(
-            signal_type="consecutive_discards",
-            confidence=confidence,
-            detail=(
-                f"{count} consecutive discard/crash entries "
-                f"(threshold {thresholds.max_consecutive_discards})"
-            ),
-        )
-    return None
+    return _detect_trailing_streak(
+        entries,
+        {"discard", "crash"},
+        "consecutive_discards",
+        thresholds.max_consecutive_discards,
+        "discard/crash entries",
+    )
 
 
 def _detect_alternating(
@@ -141,13 +159,13 @@ def _detect_alternating(
     )
     ratio = alternations / (len(statuses) - 1)
 
-    if ratio >= 0.8:
+    if ratio >= thresholds.alternating_ratio:
         return ConvergenceSignal(
             signal_type="alternating",
             confidence=ratio,
             detail=(
                 f"Alternation ratio {ratio:.2f} over last {thresholds.alternating_window} entries "
-                f"(threshold 0.80)"
+                f"(threshold {thresholds.alternating_ratio:.2f})"
             ),
         )
     return None
@@ -190,20 +208,38 @@ def _detect_timeout_streak(
     thresholds: ConvergenceThresholds,
 ) -> ConvergenceSignal | None:
     """Fire when trailing entries are all timeouts."""
-    count = 0
-    for entry in reversed(entries):
-        if entry.status == "timeout":
-            count += 1
-        else:
-            break
+    return _detect_trailing_streak(
+        entries,
+        {"timeout"},
+        "timeout_streak",
+        thresholds.max_consecutive_timeouts,
+        "timeouts",
+    )
 
-    if count >= thresholds.max_consecutive_timeouts:
-        confidence = min(count / (thresholds.max_consecutive_timeouts + 2), 1.0)
-        return ConvergenceSignal(
-            signal_type="timeout_streak",
-            confidence=confidence,
-            detail=(
-                f"{count} consecutive timeouts (threshold {thresholds.max_consecutive_timeouts})"
-            ),
-        )
-    return None
+
+def _detect_consecutive_interesting(
+    entries: list[ExperimentEntry],
+    thresholds: ConvergenceThresholds,
+) -> ConvergenceSignal | None:
+    """Fire when trailing entries are all 'interesting'."""
+    return _detect_trailing_streak(
+        entries,
+        {"interesting"},
+        "consecutive_interesting",
+        thresholds.max_consecutive_interesting,
+        "interesting entries",
+    )
+
+
+def _detect_consecutive_thoughts(
+    entries: list[ExperimentEntry],
+    thresholds: ConvergenceThresholds,
+) -> ConvergenceSignal | None:
+    """Fire when trailing entries are all 'thought'."""
+    return _detect_trailing_streak(
+        entries,
+        {"thought"},
+        "consecutive_thoughts",
+        thresholds.max_consecutive_thoughts,
+        "thought entries",
+    )

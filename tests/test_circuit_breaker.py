@@ -90,6 +90,7 @@ class FakeAnalysis:
     has_permission_denials: bool = False
     work_summary: str = ""
     is_error: bool = False
+    files_modified: int = 0
 
 
 class TestThreeStateCircuitBreaker(unittest.TestCase):
@@ -188,6 +189,37 @@ class TestThreeStateCircuitBreaker(unittest.TestCase):
 
         self.assertEqual(cb.current_phase, BreakerPhase.OPEN)
         self.assertTrue(cb.is_open())
+
+    def test_no_files_modified_stall(self) -> None:
+        cb = CircuitBreaker()
+
+        from src.circuit_breaker import NO_FILES_MODIFIED_THRESHOLD
+
+        # Iterations with files_modified=0 and no other progress
+        for i in range(NO_FILES_MODIFIED_THRESHOLD):
+            progress = FakeProgress()
+            analysis = FakeAnalysis(work_summary=f"iteration {i}", files_modified=0)
+            cb.record_iteration(progress, analysis)
+
+        self.assertEqual(cb.current_phase, BreakerPhase.OPEN)
+        self.assertTrue(cb.is_open())
+
+    def test_files_modified_resets_counter(self) -> None:
+        cb = CircuitBreaker()
+
+        from src.circuit_breaker import NO_FILES_MODIFIED_THRESHOLD
+
+        # Build up some no-files-modified iterations (but not enough to trip)
+        for i in range(NO_FILES_MODIFIED_THRESHOLD - 2):
+            progress = FakeProgress()
+            analysis = FakeAnalysis(work_summary=f"iteration {i}", files_modified=0)
+            cb.record_iteration(progress, analysis)
+
+        # Now an iteration with files modified resets the counter
+        progress = FakeProgress()
+        analysis = FakeAnalysis(work_summary="made progress", files_modified=3)
+        cb.record_iteration(progress, analysis)
+        self.assertEqual(cb.state.consecutive_no_files_modified, 0)
 
     def test_backward_compat_record_failure_success(self) -> None:
         cb = CircuitBreaker(max_failures=2)
