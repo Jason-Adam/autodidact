@@ -7,6 +7,8 @@ import unittest
 from src.interview import DimensionScore
 from src.self_assessment import (
     ASSESSMENT_DIMENSIONS,
+    PIVOT_THRESHOLD,
+    UNBLOCKING_THRESHOLD,
     AssessmentResult,
     build_assessment_prompt,
     parse_assessment_block,
@@ -162,6 +164,53 @@ class TestAssessmentResult(unittest.TestCase):
     def test_should_not_pivot_when_no_approach_dimension(self):
         scores = [DimensionScore("blocker_id", 0.8, 0.35)]
         result = AssessmentResult(scores=scores, overall_clarity=0.8)
+        assert result.should_pivot is False
+
+    def test_should_not_pivot_when_approach_low_but_unblocking_high(self):
+        """Low viability + high escape routes = recoverable, don't pivot."""
+        scores = [
+            DimensionScore("approach_viability", 0.3, 0.30),
+            DimensionScore("unblocking_paths", 0.8, 0.15),
+            DimensionScore("blocker_id", 0.5, 0.35),
+        ]
+        result = AssessmentResult(scores=scores, overall_clarity=0.5)
+        assert result.should_pivot is False
+
+    def test_should_pivot_when_approach_low_and_unblocking_low(self):
+        """Low viability + no escape routes = true dead end, pivot."""
+        scores = [
+            DimensionScore("approach_viability", 0.3, 0.30),
+            DimensionScore("unblocking_paths", 0.2, 0.15),
+            DimensionScore("blocker_id", 0.5, 0.35),
+        ]
+        result = AssessmentResult(scores=scores, overall_clarity=0.3)
+        assert result.should_pivot is True
+
+    def test_should_pivot_when_approach_low_and_unblocking_missing(self):
+        """Low viability + missing unblocking dimension = fallback to pivot."""
+        scores = [
+            DimensionScore("approach_viability", 0.3, 0.30),
+            DimensionScore("blocker_id", 0.8, 0.35),
+        ]
+        result = AssessmentResult(scores=scores, overall_clarity=0.5)
+        assert result.should_pivot is True
+
+    def test_pivot_boundary_at_unblocking_threshold(self):
+        """Exactly at UNBLOCKING_THRESHOLD = no pivot (threshold is exclusive)."""
+        scores = [
+            DimensionScore("approach_viability", 0.3, 0.30),
+            DimensionScore("unblocking_paths", UNBLOCKING_THRESHOLD, 0.15),
+        ]
+        result = AssessmentResult(scores=scores, overall_clarity=0.4)
+        assert result.should_pivot is False
+
+    def test_pivot_boundary_at_pivot_threshold(self):
+        """Exactly at PIVOT_THRESHOLD = no pivot (threshold is exclusive)."""
+        scores = [
+            DimensionScore("approach_viability", PIVOT_THRESHOLD, 0.30),
+            DimensionScore("unblocking_paths", 0.1, 0.15),
+        ]
+        result = AssessmentResult(scores=scores, overall_clarity=0.4)
         assert result.should_pivot is False
 
 

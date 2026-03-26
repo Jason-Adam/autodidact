@@ -23,8 +23,10 @@ ASSESSMENT_DIMENSIONS: list[tuple[str, float]] = [
     ("unblocking_paths", 0.15),
 ]
 
-# Below this threshold on approach_viability, inject a pivot directive
+# Below this threshold on approach_viability, consider a pivot
 PIVOT_THRESHOLD = 0.5
+# Below this threshold on unblocking_paths, confirm the pivot (no escape routes)
+UNBLOCKING_THRESHOLD = 0.4
 
 _BLOCK_RE = re.compile(
     r"---SELF_ASSESSMENT---\s*\r?\n(.*?)\r?\n\s*---END_SELF_ASSESSMENT---",
@@ -42,11 +44,27 @@ class AssessmentResult:
 
     @property
     def should_pivot(self) -> bool:
-        """True when approach_viability is below the pivot threshold."""
+        """True when approach is unviable AND no escape routes are known.
+
+        Both conditions must hold: low approach_viability signals the current
+        strategy is failing, and low unblocking_paths confirms there are no
+        known ways to recover — a true dead end worth pivoting away from.
+        """
+        approach = None
+        unblocking = None
         for s in self.scores:
             if s.name == "approach_viability":
-                return s.clarity < PIVOT_THRESHOLD
-        return False
+                approach = s.clarity
+            elif s.name == "unblocking_paths":
+                unblocking = s.clarity
+        if approach is None:
+            return False
+        if approach >= PIVOT_THRESHOLD:
+            return False
+        # If unblocking_paths is missing, fall back to approach-only check
+        if unblocking is None:
+            return True
+        return unblocking < UNBLOCKING_THRESHOLD
 
 
 def parse_assessment_block(text: str) -> dict[str, str] | None:
