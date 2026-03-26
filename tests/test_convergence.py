@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from src.convergence import (
+    ConvergenceThresholds,
     ExperimentEntry,
     detect_signals,
 )
@@ -91,7 +92,6 @@ class TestConvergence(unittest.TestCase):
     # ── Alternating ──────────────────────────────────────────────────
 
     def test_alternating_custom_ratio(self) -> None:
-        from src.convergence import ConvergenceThresholds
 
         # Imperfect alternation over 8 entries: ratio = 5/7 = 0.71
         entries = [

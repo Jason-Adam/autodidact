@@ -63,7 +63,7 @@ For each experiment:
 Check exit conditions after each experiment:
 - Total budget exceeded
 - Max experiments reached
-- Convergence signal detected (plateau, consecutive discards, alternating, code repetition, timeout streak)
+- Convergence signal detected (plateau, consecutive discards, alternating, code repetition, timeout streak, consecutive interesting, consecutive thoughts)
 - Circuit breaker tripped
 - Fitness expression satisfied (if plan has `### Fitness` section)
 

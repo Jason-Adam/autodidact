@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from src.convergence import (
     ConvergenceThresholds,
@@ -48,8 +48,10 @@ def make_plateau_history(
     return entries
 
 
-def make_discard_history(length: int, convergence_idx: int) -> list[ExperimentEntry]:
-    """Keeps with improving metric, then all-discard at convergence_idx."""
+def _make_streak_history(
+    length: int, convergence_idx: int, streak_status: str
+) -> list[ExperimentEntry]:
+    """Improving keeps, then all-{streak_status} at convergence_idx."""
     entries: list[ExperimentEntry] = []
     metric = 0.5
     for i in range(length):
@@ -57,8 +59,12 @@ def make_discard_history(length: int, convergence_idx: int) -> list[ExperimentEn
             metric += 0.03
             entries.append(_entry(i, "keep", metric=metric))
         else:
-            entries.append(_entry(i, "discard", metric=None))
+            entries.append(_entry(i, streak_status, metric=None))
     return entries
+
+
+def make_discard_history(length: int, convergence_idx: int) -> list[ExperimentEntry]:
+    return _make_streak_history(length, convergence_idx, "discard")
 
 
 def make_oscillating_history(length: int, convergence_idx: int) -> list[ExperimentEntry]:
@@ -78,42 +84,15 @@ def make_oscillating_history(length: int, convergence_idx: int) -> list[Experime
 
 
 def make_interesting_history(length: int, convergence_idx: int) -> list[ExperimentEntry]:
-    """Normal keeps, then all-interesting at convergence_idx."""
-    entries: list[ExperimentEntry] = []
-    metric = 0.5
-    for i in range(length):
-        if i < convergence_idx:
-            metric += 0.03
-            entries.append(_entry(i, "keep", metric=metric))
-        else:
-            entries.append(_entry(i, "interesting", metric=None))
-    return entries
+    return _make_streak_history(length, convergence_idx, "interesting")
 
 
 def make_thought_history(length: int, convergence_idx: int) -> list[ExperimentEntry]:
-    """Normal keeps, then all-thought at convergence_idx."""
-    entries: list[ExperimentEntry] = []
-    metric = 0.5
-    for i in range(length):
-        if i < convergence_idx:
-            metric += 0.03
-            entries.append(_entry(i, "keep", metric=metric))
-        else:
-            entries.append(_entry(i, "thought", metric=None))
-    return entries
+    return _make_streak_history(length, convergence_idx, "thought")
 
 
 def make_timeout_history(length: int, convergence_idx: int) -> list[ExperimentEntry]:
-    """Normal keeps, then all-timeout at convergence_idx."""
-    entries: list[ExperimentEntry] = []
-    metric = 0.5
-    for i in range(length):
-        if i < convergence_idx:
-            metric += 0.03
-            entries.append(_entry(i, "keep", metric=metric))
-        else:
-            entries.append(_entry(i, "timeout", metric=None))
-    return entries
+    return _make_streak_history(length, convergence_idx, "timeout")
 
 
 def make_code_repetition_history(length: int, convergence_idx: int) -> list[ExperimentEntry]:
@@ -301,15 +280,13 @@ def run_suite(
             lag_sum += lag
             lag_count += 1
 
-        # Track which signal types fire correctly — check the expected signal
-        # at any prefix, not just the first detection point (another signal
-        # may fire earlier, masking coverage).
+        # Track whether each expected signal fires at any prefix of its
+        # designated history — only record the expected signal, not bystanders.
         if case.expected_signal not in signal_fired:
             for j in range(1, len(case.history) + 1):
                 sigs = detect_signals(case.history[:j], thresholds)
-                for s in sigs:
-                    signal_fired[s.signal_type] = True
-                if case.expected_signal in signal_fired:
+                if any(s.signal_type == case.expected_signal for s in sigs):
+                    signal_fired[case.expected_signal] = True
                     break
 
     mean_isr = isr_sum / total if total else 0.0
@@ -362,19 +339,7 @@ def grid_search(
 
     results: list[tuple[dict[str, object], SyntheticResult]] = []
     for combo in combos:
-        # Create thresholds with overrides
-        params = {
-            "plateau_threshold": base_thresholds.plateau_threshold,
-            "plateau_window": base_thresholds.plateau_window,
-            "max_consecutive_discards": base_thresholds.max_consecutive_discards,
-            "alternating_window": base_thresholds.alternating_window,
-            "alternating_ratio": base_thresholds.alternating_ratio,
-            "code_repetition_window": base_thresholds.code_repetition_window,
-            "code_repetition_threshold": base_thresholds.code_repetition_threshold,
-            "max_consecutive_timeouts": base_thresholds.max_consecutive_timeouts,
-            "max_consecutive_interesting": base_thresholds.max_consecutive_interesting,
-            "max_consecutive_thoughts": base_thresholds.max_consecutive_thoughts,
-        }
+        params = asdict(base_thresholds)
         params.update(combo)
         thresholds = ConvergenceThresholds(**params)  # type: ignore[arg-type]
         result = run_suite(thresholds)
