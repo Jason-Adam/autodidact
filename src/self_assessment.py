@@ -10,6 +10,7 @@ Reuses DimensionScore and compute_ambiguity from src.interview.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -23,8 +24,10 @@ ASSESSMENT_DIMENSIONS: list[tuple[str, float]] = [
     ("unblocking_paths", 0.15),
 ]
 
-# Below this threshold on approach_viability, inject a pivot directive
+# Below this threshold on approach_viability, consider a pivot
 PIVOT_THRESHOLD = 0.5
+# Below this threshold on unblocking_paths, confirm the pivot (no escape routes)
+UNBLOCKING_THRESHOLD = 0.4
 
 _BLOCK_RE = re.compile(
     r"---SELF_ASSESSMENT---\s*\r?\n(.*?)\r?\n\s*---END_SELF_ASSESSMENT---",
@@ -42,11 +45,27 @@ class AssessmentResult:
 
     @property
     def should_pivot(self) -> bool:
-        """True when approach_viability is below the pivot threshold."""
-        for s in self.scores:
-            if s.name == "approach_viability":
-                return s.clarity < PIVOT_THRESHOLD
-        return False
+        """True when approach is unviable AND no escape routes are known.
+
+        Both conditions must hold: low approach_viability signals the current
+        strategy is failing, and low unblocking_paths confirms there are no
+        known ways to recover — a true dead end worth pivoting away from.
+
+        If unblocking_paths is absent from scores, it defaults to 0.0
+        (assumes no escape routes), so pivot fires on approach_viability alone.
+        Non-finite values (NaN/inf) are treated as missing.
+        """
+
+        by_name = {s.name: s.clarity for s in self.scores}
+        approach = by_name.get("approach_viability")
+        if approach is None or not math.isfinite(approach):
+            return False
+        if approach >= PIVOT_THRESHOLD:
+            return False
+        unblocking = by_name.get("unblocking_paths", 0.0)
+        if not math.isfinite(unblocking):
+            unblocking = 0.0
+        return unblocking < UNBLOCKING_THRESHOLD
 
 
 def parse_assessment_block(text: str) -> dict[str, str] | None:
