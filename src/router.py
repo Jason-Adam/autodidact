@@ -254,6 +254,7 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("parallel", 0.4),
         ("worktree", 0.5),
         ("concurrent", 0.3),
+        ("concurrently", 0.3),
         ("wave", 0.3),
         ("simultaneously", 0.3),
     ],
@@ -302,7 +303,7 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("polish", 0.6),
         ("clean up", 0.4),
         ("simplify", 0.4),
-        ("security review", 0.5),
+        ("security review", 0.65),
         ("fix issues", 0.3),
         ("tidy", 0.3),
     ],
@@ -335,19 +336,41 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
 }
 
 
+# Pre-compiled patterns and pre-sorted keyword lists (built once at import).
+_KEYWORD_PATTERNS: dict[str, list[tuple[str, re.Pattern[str], float]]] = {
+    skill: sorted(
+        [(kw, re.compile(r"\b" + re.escape(kw) + r"\b"), w) for kw, w in keywords],
+        key=lambda x: len(x[0]),
+        reverse=True,
+    )
+    for skill, keywords in _KEYWORD_SCORES.items()
+}
+
+_TIER2_THRESHOLD = 0.3
+
+
 def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
     """Score prompt against keyword tables. Low cost."""
     normalized = prompt.strip().lower()
     best_skill = ""
     best_score = 0.0
 
-    for skill, keywords in _KEYWORD_SCORES.items():
-        score = sum(weight for kw, weight in keywords if kw in normalized)
+    for skill, patterns in _KEYWORD_PATTERNS.items():
+        matched: list[str] = []
+        score = 0.0
+        for kw, pattern, weight in patterns:
+            if not pattern.search(normalized):
+                continue
+            # Skip if this keyword is a substring of an already-matched keyword
+            if any(kw in m for m in matched):
+                continue
+            matched.append(kw)
+            score += weight
         if score > best_score:
             best_score = score
             best_skill = skill
 
-    if best_score >= 0.6:
+    if best_score >= _TIER2_THRESHOLD:
         return RouterResult(
             skill=best_skill,
             confidence=min(best_score, 1.0),
