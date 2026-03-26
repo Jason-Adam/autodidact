@@ -62,10 +62,10 @@ class TestExitTracker(unittest.TestCase):
 
     def test_completion_indicators_capped(self) -> None:
         tracker = self._make_tracker()
-        for i in range(8):
+        for i in range(10):
             tracker.update(i, FakeAnalysis(exit_signal=True))
-        self.assertEqual(len(tracker._signals.completion_indicators), 5)
-        self.assertEqual(tracker._signals.completion_indicators, [3, 4, 5, 6, 7])
+        self.assertEqual(len(tracker._signals.completion_indicators), 7)
+        self.assertEqual(tracker._signals.completion_indicators, [3, 4, 5, 6, 7, 8, 9])
 
     # --- priority 0: permission denied ---
 
@@ -80,7 +80,7 @@ class TestExitTracker(unittest.TestCase):
 
     def test_priority_1_test_saturation(self) -> None:
         tracker = self._make_tracker()
-        for i in range(3):
+        for i in range(5):
             tracker.update(i, FakeAnalysis(work_type="testing"))
         decision = tracker.evaluate()
         self.assertTrue(decision.should_exit)
@@ -94,13 +94,13 @@ class TestExitTracker(unittest.TestCase):
             tracker.update(i, FakeAnalysis(raw_status="COMPLETE"))
         decision = tracker.evaluate()
         self.assertTrue(decision.should_exit)
-        self.assertEqual(decision.reason, "completion_signals")
+        self.assertEqual(decision.reason, "repeated_done")
 
     # --- priority 3: safety backstop ---
 
     def test_priority_3_safety_backstop(self) -> None:
         tracker = self._make_tracker()
-        for i in range(5):
+        for i in range(7):
             tracker.update(i, FakeAnalysis(exit_signal=True))
         decision = tracker.evaluate()
         self.assertTrue(decision.should_exit)
@@ -110,17 +110,17 @@ class TestExitTracker(unittest.TestCase):
 
     def test_priority_4_dual_condition(self) -> None:
         tracker = self._make_tracker()
-        tracker.update(1, FakeAnalysis(exit_signal=True))
-        tracker.update(2, FakeAnalysis(exit_signal=True))
+        for i in range(1, 5):  # 4 indicators to meet DCF=4
+            tracker.update(i, FakeAnalysis(exit_signal=True))
         analysis = FakeAnalysis(exit_signal=True)
         decision = tracker.evaluate(analysis)
         self.assertTrue(decision.should_exit)
-        self.assertEqual(decision.reason, "completion_signals")
+        self.assertEqual(decision.reason, "dual_condition")
 
     def test_priority_4_dual_condition_no_exit_signal(self) -> None:
         tracker = self._make_tracker()
-        tracker.update(1, FakeAnalysis(exit_signal=True))
-        tracker.update(2, FakeAnalysis(exit_signal=True))
+        for i in range(1, 5):  # 4 indicators to meet DCF=4
+            tracker.update(i, FakeAnalysis(exit_signal=True))
         analysis = FakeAnalysis(exit_signal=False)
         decision = tracker.evaluate(analysis)
         self.assertFalse(decision.should_exit)
@@ -167,6 +167,52 @@ class TestExitTracker(unittest.TestCase):
         decision = tracker.evaluate()
         self.assertFalse(decision.should_exit)
         self.assertEqual(decision.reason, "")
+
+
+class TestDualConditionFloorScaling(unittest.TestCase):
+    """Verify DUAL_CONDITION_FLOOR = max(1, MCI - 3) scales correctly."""
+
+    def test_mci_3_floor_is_1(self) -> None:
+        self.assertEqual(max(1, 3 - 3), 1)
+
+    def test_mci_4_floor_is_1(self) -> None:
+        self.assertEqual(max(1, 4 - 3), 1)
+
+    def test_mci_7_floor_is_4(self) -> None:
+        self.assertEqual(max(1, 7 - 3), 4)
+
+    def test_current_constants_consistent(self) -> None:
+        self.assertEqual(
+            ExitTracker.DUAL_CONDITION_FLOOR,
+            max(1, ExitTracker.MAX_COMPLETION_INDICATORS - 3),
+        )
+
+
+class TestSweepBaseline(unittest.TestCase):
+    """Verify current thresholds produce composite >= pre-tuning baseline."""
+
+    def test_current_beats_baseline(self) -> None:
+        from tests.exit_tracker_param_sweep import _BASELINE, build_scenarios, evaluate_params
+
+        scenarios = build_scenarios()
+
+        # Evaluate current constants
+        current = evaluate_params(
+            scenarios,
+            max_completion_indicators=ExitTracker.MAX_COMPLETION_INDICATORS,
+            max_test_only_loops=ExitTracker.MAX_TEST_ONLY_LOOPS,
+            max_done_signals=ExitTracker.MAX_DONE_SIGNALS,
+            dual_condition_floor=ExitTracker.DUAL_CONDITION_FLOOR,
+        )
+
+        # Evaluate pre-tuning baseline
+        baseline = evaluate_params(scenarios, **_BASELINE)
+
+        self.assertGreaterEqual(
+            current.composite_score,
+            baseline.composite_score,
+            f"Current {current.composite_score:.4f} < baseline {baseline.composite_score:.4f}",
+        )
 
 
 if __name__ == "__main__":

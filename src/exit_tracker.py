@@ -31,9 +31,10 @@ class ExitDecision:
 
 
 class ExitTracker:
-    MAX_COMPLETION_INDICATORS = 5
-    MAX_TEST_ONLY_LOOPS = 3
+    MAX_COMPLETION_INDICATORS = 7
+    MAX_TEST_ONLY_LOOPS = 5
     MAX_DONE_SIGNALS = 2
+    DUAL_CONDITION_FLOOR = max(1, MAX_COMPLETION_INDICATORS - 3)
 
     def __init__(self, state_path: Path, plan_path: Path | None = None) -> None:
         """state_path: where to persist ExitSignals JSON.
@@ -84,7 +85,7 @@ class ExitTracker:
 
         # 2. Repeated done signals
         if len(self._signals.done_signals) >= self.MAX_DONE_SIGNALS:
-            return ExitDecision(should_exit=True, reason="completion_signals")
+            return ExitDecision(should_exit=True, reason="repeated_done")
 
         # 3. Safety backstop
         if len(self._signals.completion_indicators) >= self.MAX_COMPLETION_INDICATORS:
@@ -92,11 +93,11 @@ class ExitTracker:
 
         # 4. Dual-condition
         if (
-            len(self._signals.completion_indicators) >= 2
+            len(self._signals.completion_indicators) >= self.DUAL_CONDITION_FLOOR
             and analysis is not None
             and analysis.exit_signal
         ):
-            return ExitDecision(should_exit=True, reason="completion_signals")
+            return ExitDecision(should_exit=True, reason="dual_condition")
 
         # 5. Plan complete
         if self._check_plan_complete():
