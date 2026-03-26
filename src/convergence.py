@@ -22,16 +22,16 @@ class ExperimentEntry:
 class ConvergenceThresholds:
     """Configurable thresholds for convergence signal detection."""
 
-    plateau_threshold: float = 0.01  # < 1% improvement over window
-    plateau_window: int = 3  # N consecutive keeps to evaluate
-    max_consecutive_discards: int = 5
-    alternating_window: int = 6  # last N entries for oscillation check
-    alternating_ratio: float = 0.8  # oscillation detection threshold
+    plateau_threshold: float = 0.02  # < 2% improvement over window
+    plateau_window: int = 2  # N consecutive keeps to evaluate
+    max_consecutive_discards: int = 3
+    alternating_window: int = 8  # last N entries for oscillation check
+    alternating_ratio: float = 0.85  # oscillation detection threshold
     code_repetition_window: int = 10
-    code_repetition_threshold: int = 3  # same file touched N+ times in window
+    code_repetition_threshold: int = 4  # same file touched N+ times in window
     max_consecutive_timeouts: int = 2
-    max_consecutive_interesting: int = 4
-    max_consecutive_thoughts: int = 4
+    max_consecutive_interesting: int = 3
+    max_consecutive_thoughts: int = 3
 
 
 @dataclass

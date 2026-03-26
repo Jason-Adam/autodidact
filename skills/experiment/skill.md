@@ -24,12 +24,12 @@ Collect via interview:
 4. **Total session budget** — default 3600s
 5. **Optimization direction** — minimize or maximize
 6. **Convergence overrides** (optional) — custom thresholds for convergence detection. If provided, pass to `ConvergenceThresholds`. Available overrides:
-   - `plateau_threshold` (float, default 0.01) — minimum improvement to avoid plateau signal
-   - `plateau_window` (int, default 3) — consecutive keeps to evaluate
-   - `max_consecutive_discards` (int, default 5) — discard streak before convergence
-   - `alternating_ratio` (float, default 0.8) — oscillation detection threshold
-   - `max_consecutive_interesting` (int, default 4) — interesting streak before convergence
-   - `max_consecutive_thoughts` (int, default 4) — thought streak before convergence
+   - `plateau_threshold` (float, default 0.02) — minimum improvement to avoid plateau signal
+   - `plateau_window` (int, default 2) — consecutive keeps to evaluate
+   - `max_consecutive_discards` (int, default 3) — discard streak before convergence
+   - `alternating_ratio` (float, default 0.85) — oscillation detection threshold
+   - `max_consecutive_interesting` (int, default 3) — interesting streak before convergence
+   - `max_consecutive_thoughts` (int, default 3) — thought streak before convergence
    - `max_consecutive_timeouts` (int, default 2) — timeout streak before convergence
 
 ### Phase 1b: Resume (optional)
