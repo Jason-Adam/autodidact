@@ -24,12 +24,10 @@ _PENDING_FIX_PATH = _STATE_DIR / "pending_fix.json"
 
 def _session_had_task_success(session_id: str) -> bool:
     """Check if any task completed successfully during this session."""
-    if not _TASK_SUCCESS_PATH.exists():
-        return False
     try:
         data = json.loads(_TASK_SUCCESS_PATH.read_text())
         return data.get("session_id") == session_id
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, FileNotFoundError):
         return False
 
 
@@ -64,7 +62,6 @@ def main() -> None:
             # to learnings that were accessed (surfaced as context) but
             # didn't contribute to a successful outcome
             if not _session_had_task_success(session_id):
-                accessed = db.get_accessed_in_session(session_id)
                 for entry in accessed:
                     db.decay(entry["id"], amount=0.05)
 
