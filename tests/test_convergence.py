@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from src.convergence import (
+    ConvergenceThresholds,
     ExperimentEntry,
     detect_signals,
 )
@@ -91,24 +92,25 @@ class TestConvergence(unittest.TestCase):
     # ── Alternating ──────────────────────────────────────────────────
 
     def test_alternating_custom_ratio(self) -> None:
-        from src.convergence import ConvergenceThresholds
 
-        # Imperfect alternation: ratio = 3/5 = 0.6
+        # Imperfect alternation over 8 entries: ratio = 5/7 = 0.71
         entries = [
             _make_entry(1, "keep"),
             _make_entry(2, "keep"),  # no alternation
             _make_entry(3, "discard"),
             _make_entry(4, "keep"),
-            _make_entry(5, "keep"),  # no alternation
-            _make_entry(6, "discard"),
+            _make_entry(5, "discard"),
+            _make_entry(6, "keep"),
+            _make_entry(7, "keep"),  # no alternation
+            _make_entry(8, "discard"),
         ]
-        # Default ratio 0.8 should NOT fire (3/5 = 0.6 < 0.8)
+        # Default ratio 0.85 should NOT fire (5/7 = 0.71 < 0.85)
         signals = detect_signals(entries)
         types = [s.signal_type for s in signals]
         self.assertNotIn("alternating", types)
 
-        # With a lower threshold, it should fire
-        low_threshold = ConvergenceThresholds(alternating_ratio=0.5)
+        # With a lower threshold and window, it should fire
+        low_threshold = ConvergenceThresholds(alternating_ratio=0.5, alternating_window=8)
         signals = detect_signals(entries, low_threshold)
         types = [s.signal_type for s in signals]
         self.assertIn("alternating", types)
@@ -121,6 +123,8 @@ class TestConvergence(unittest.TestCase):
             _make_entry(4, "discard"),
             _make_entry(5, "keep"),
             _make_entry(6, "discard"),
+            _make_entry(7, "keep"),
+            _make_entry(8, "discard"),
         ]
         signals = detect_signals(entries)
         types = [s.signal_type for s in signals]
@@ -134,6 +138,7 @@ class TestConvergence(unittest.TestCase):
             _make_entry(1, "keep", files=[repeated_file, "src/other.py"]),
             _make_entry(2, "discard", files=[repeated_file]),
             _make_entry(3, "keep", files=[repeated_file, "tests/test_main.py"]),
+            _make_entry(4, "discard", files=[repeated_file]),
         ]
         signals = detect_signals(entries)
         types = [s.signal_type for s in signals]
