@@ -70,7 +70,7 @@ import sys; sys.path.insert(0, 'REPO_PATH')
 from src.worktree import WorktreeManager
 from pathlib import Path
 mgr = WorktreeManager(Path('CWD'))
-info = mgr.create('TASK_ID')
+info = mgr.create_worktree('DESCRIPTION', task_id='TASK_ID')
 print(f'Worktree: {info.path}, Branch: {info.branch}')
 "
 ```
@@ -99,8 +99,8 @@ import sys; sys.path.insert(0, 'REPO_PATH')
 from src.worktree import WorktreeManager
 from pathlib import Path
 mgr = WorktreeManager(Path('CWD'))
-success = mgr.merge('TASK_ID')
-print(f'Merge: {'success' if success else 'CONFLICT'}')
+success = mgr.merge_worktree('TASK_ID')
+print(f'Merge: {\"success\" if success else \"CONFLICT\"}')
 "
 ```
 

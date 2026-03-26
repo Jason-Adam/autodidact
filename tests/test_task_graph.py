@@ -153,6 +153,15 @@ class TestValidate(unittest.TestCase):
         self.assertTrue(any("bottleneck" in w for w in result["warnings"]))
 
 
+class TestDuplicateTaskId(unittest.TestCase):
+    def test_duplicate_task_id_raises(self) -> None:
+        g = TaskGraph()
+        g.add_task(TaskNode(task_id="a", description="first"))
+        with self.assertRaises(ValueError) as ctx:
+            g.add_task(TaskNode(task_id="a", description="second"))
+        self.assertIn("Duplicate", str(ctx.exception))
+
+
 class TestEmptyTargetFiles(unittest.TestCase):
     def test_no_files_no_overlap(self) -> None:
         """Tasks with no target_files don't create overlap edges."""

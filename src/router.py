@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+_MAX_PLAN_BYTES = 256 * 1024  # 256 KB cap for plan file reads
 
 
 @dataclass
@@ -99,7 +100,7 @@ def _tier1_active_state(cwd: str) -> RouterResult | None:
     for path, is_glob, skill, reasoning_tpl in _checks:
         if not path.exists():
             continue
-        files = list(path.glob("*.json")) if is_glob else [path]
+        files = sorted(path.glob("*.json"), reverse=True) if is_glob else [path]
         for f in files:
             try:
                 data = json.loads(f.read_text())
@@ -202,7 +203,7 @@ def _tier25_plan_analysis(cwd: str) -> RouterResult | None:
     if not plan_files:
         return None
 
-    text = plan_files[0].read_text()
+    text = plan_files[0].read_bytes()[:_MAX_PLAN_BYTES].decode("utf-8", errors="replace")
     phases = _parse_plan_phases(text)
     phase_count = len(phases)
 
@@ -437,14 +438,12 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
     skills (e.g. ``crsdigital:create-plan``) are also available.
     """
     # Cost-ascending: run each tier until one matches.
-    resolvers: tuple[Callable[[], RouterResult | None], ...] = (
-        lambda: _tier0_pattern_match(prompt),
-        lambda: _tier1_active_state(cwd),
-        lambda: _tier2_keyword_heuristic(prompt),
-        lambda: _tier25_plan_analysis(cwd),
-    )
-    for resolver in resolvers:
-        result = resolver()
+    for result in (
+        _tier0_pattern_match(prompt),
+        _tier1_active_state(cwd),
+        _tier2_keyword_heuristic(prompt),
+        _tier25_plan_analysis(cwd),
+    ):
         if result:
             result.skill = _qualify_skill(result.skill)
             return _assign_model(result)

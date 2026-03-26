@@ -140,7 +140,7 @@ class TestRecoverFleetEmptyWorktree(unittest.TestCase):
 
             result = mgr.recover_fleet()
             self.assertEqual(result, [])
-            self.assertEqual(worker.status, "failed")
+            self.assertEqual(worker.status, "cleaned")
 
 
 class TestCheckWorktreeHealthMissing(unittest.TestCase):

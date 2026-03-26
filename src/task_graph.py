@@ -37,6 +37,8 @@ class TaskGraph:
 
     def add_task(self, node: TaskNode) -> None:
         """Register a task node in the graph."""
+        if node.task_id in self.nodes:
+            raise ValueError(f"Duplicate task_id: {node.task_id!r}")
         self.nodes[node.task_id] = node
         self._insertion_order.append(node.task_id)
 
@@ -56,20 +58,15 @@ class TaskGraph:
                 if dep in self.nodes:
                     edges[tid].add(dep)
 
-        # Implicit file-overlap edges (lower insertion order goes first)
-        order = {tid: i for i, tid in enumerate(self._insertion_order)}
-        task_ids = list(self.nodes.keys())
+        # Implicit file-overlap edges (later-inserted depends on earlier)
+        task_ids = list(self._insertion_order)
         for i in range(len(task_ids)):
             for j in range(i + 1, len(task_ids)):
                 a, b = task_ids[i], task_ids[j]
                 files_a = set(self.nodes[a].target_files)
                 files_b = set(self.nodes[b].target_files)
                 if files_a and files_b and (files_a & files_b):
-                    # Later-inserted task depends on earlier-inserted
-                    if order[a] < order[b]:
-                        edges[b].add(a)
-                    else:
-                        edges[a].add(b)
+                    edges[b].add(a)
 
         return edges
 
@@ -99,7 +96,7 @@ class TaskGraph:
             # Find all tasks with no unmet dependencies
             ready = sorted([tid for tid in remaining if in_degree[tid] == 0])
             if not ready:
-                raise ValueError(f"Cycle detected in task graph. Remaining: {remaining}")
+                raise ValueError(f"Cycle detected in task graph involving {len(remaining)} tasks")
 
             # Split into sub-waves of max_per_wave
             for i in range(0, len(ready), self.max_per_wave):

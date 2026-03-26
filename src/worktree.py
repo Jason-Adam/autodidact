@@ -13,14 +13,16 @@ import subprocess
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from src.git_utils import resolve_main_repo
 
 if TYPE_CHECKING:
     from src.task_graph import TaskGraph
-from pathlib import Path
-from typing import Any
 
-from src.git_utils import resolve_main_repo
+_SAFE_TASK_ID = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
+_SAFE_GIT_REF = re.compile(r"^[a-zA-Z0-9_./@~^:-]{1,256}$")
 
 WORKTREE_DIR = ".worktrees"
 BRANCH_PREFIX = "fleet"
@@ -212,9 +214,6 @@ class WorktreeManager:
 
     def finish_fleet(self) -> None:
         """Mark fleet as completed and clean up state file."""
-        if self.state:
-            self.state.status = "completed"
-            self._save_state()
         self._clear_state()
 
     def abort_fleet(self) -> None:
@@ -235,6 +234,11 @@ class WorktreeManager:
         """Create an isolated worktree and register it in fleet state."""
         if task_id is None:
             task_id = uuid.uuid4().hex[:8]
+        elif not _SAFE_TASK_ID.match(task_id):
+            raise ValueError(f"Invalid task_id: {task_id!r}")
+
+        if not _SAFE_GIT_REF.match(base_ref):
+            raise ValueError(f"Invalid base_ref: {base_ref!r}")
 
         # Auto-extract file targets from description if not provided
         resolved_files = (
@@ -302,7 +306,9 @@ class WorktreeManager:
         if not worker:
             return
 
-        wt_path = Path(worker.path)
+        wt_path = Path(worker.path).resolve()
+        if not str(wt_path).startswith(str(self.worktree_base.resolve())):
+            return
         if wt_path.exists():
             subprocess.run(
                 ["git", "worktree", "remove", str(wt_path), "--force"],
@@ -312,7 +318,7 @@ class WorktreeManager:
             )
 
         subprocess.run(
-            ["git", "branch", "-D", worker.branch],
+            ["git", "branch", "-D", "--", worker.branch],
             cwd=str(self.project_root),
             capture_output=True,
             text=True,
@@ -344,7 +350,7 @@ class WorktreeManager:
             target_branch = result.stdout.strip()
 
         result = subprocess.run(
-            ["git", "merge", worker.branch, "--no-edit"],
+            ["git", "merge", "--no-edit", "--", worker.branch],
             cwd=str(self.project_root),
             capture_output=True,
             text=True,
@@ -364,7 +370,7 @@ class WorktreeManager:
         count = 0
         if self.state:
             for worker in self.state.all_workers:
-                if worker.status not in ("cleaned",):
+                if worker.status != "cleaned":
                     self.destroy_worktree(worker.task_id)
                     count += 1
 
@@ -485,7 +491,9 @@ class WorktreeManager:
         - "uncommitted"— worktree has uncommitted changes
         - "empty"      — worktree exists but has no changes at all
         """
-        path = Path(worker.path)
+        path = Path(worker.path).resolve()
+        if not str(path).startswith(str(self.worktree_base.resolve())):
+            return "missing"
         if not path.exists():
             return "missing"
 
@@ -547,9 +555,9 @@ class WorktreeManager:
                 worker.status = "completed"
             elif health == "uncommitted":
                 needs_redispatch.append(worker)
-            elif health in ("empty", "missing"):
-                if health == "empty":
-                    self.destroy_worktree(worker.task_id)
+            elif health == "empty":
+                self.destroy_worktree(worker.task_id)
+            elif health == "missing":
                 worker.status = "failed"
 
         self._save_state()
