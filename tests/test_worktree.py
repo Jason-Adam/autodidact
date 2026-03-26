@@ -178,6 +178,195 @@ class TestCheckWorktreeHealthEmpty(unittest.TestCase):
             self.assertEqual(health, "empty")
 
 
+class TestMergeWorktree(unittest.TestCase):
+    def test_merge_success(self) -> None:
+        """Worker branch merges cleanly into spawning worktree's branch."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _init_repo(tmpdir)
+            mgr = WorktreeManager(project_root=root, state_root=root)
+            mgr.start_fleet()
+            mgr.start_wave()
+            worker = mgr.create_worktree("task-merge")
+
+            # Commit a change in the worker worktree
+            wt_path = Path(worker.path)
+            (wt_path / "feature.txt").write_text("new feature")
+            subprocess.run(
+                ["git", "add", "feature.txt"],
+                cwd=str(wt_path),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "add feature"],
+                cwd=str(wt_path),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            result = mgr.merge_worktree(worker.task_id)
+            self.assertTrue(result)
+            self.assertEqual(worker.status, "merged")
+
+            # Verify the file exists in merge_root
+            self.assertTrue((mgr.merge_root / "feature.txt").exists())
+
+    def test_merge_conflict_aborts_cleanly(self) -> None:
+        """Failed merge auto-aborts, leaving tree clean for next merge."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _init_repo(tmpdir)
+
+            # Create initial file on main
+            (root / "shared.txt").write_text("original")
+            subprocess.run(
+                ["git", "add", "shared.txt"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "add shared"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            mgr = WorktreeManager(project_root=root, state_root=root)
+            mgr.start_fleet()
+            mgr.start_wave()
+            worker = mgr.create_worktree("task-conflict")
+
+            # Modify shared.txt in the worker
+            wt_path = Path(worker.path)
+            (wt_path / "shared.txt").write_text("worker version")
+            subprocess.run(
+                ["git", "add", "shared.txt"],
+                cwd=str(wt_path),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "worker edit"],
+                cwd=str(wt_path),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            # Also modify shared.txt on the main branch (creates conflict)
+            (root / "shared.txt").write_text("main version")
+            subprocess.run(
+                ["git", "add", "shared.txt"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "main edit"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            result = mgr.merge_worktree(worker.task_id)
+            self.assertFalse(result)
+            self.assertEqual(worker.status, "failed")
+
+            # Verify no merge in progress (abort succeeded)
+            # Untracked dirs (.planning/, .worktrees/) are expected fleet state
+            merge_head = mgr.merge_root / ".git" / "MERGE_HEAD"
+            self.assertFalse(merge_head.exists(), "MERGE_HEAD should not exist after abort")
+
+    def test_merge_uses_merge_root_not_project_root(self) -> None:
+        """Merge runs in the spawning worktree, not the main repo."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _init_repo(tmpdir)
+
+            # Create a "spawning worktree" branch
+            subprocess.run(
+                ["git", "checkout", "-b", "feat/test-branch"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "checkout", "-"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            # Create a worktree simulating the spawning worktree
+            spawn_path = Path(os.path.realpath(tmpdir)) / "spawn-wt"
+            subprocess.run(
+                ["git", "worktree", "add", str(spawn_path), "feat/test-branch"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            # WorktreeManager initialized from the spawning worktree
+            mgr = WorktreeManager(project_root=spawn_path, state_root=spawn_path)
+
+            # project_root should resolve to main repo
+            self.assertEqual(mgr.project_root.resolve(), root.resolve())
+            # merge_root should resolve to the spawning worktree
+            self.assertEqual(mgr.merge_root.resolve(), spawn_path.resolve())
+
+            # Create and populate a fleet worker
+            mgr.start_fleet()
+            mgr.start_wave()
+            worker = mgr.create_worktree("task-spawn-test")
+
+            wt_path = Path(worker.path)
+            (wt_path / "spawned.txt").write_text("from worker")
+            subprocess.run(
+                ["git", "add", "spawned.txt"],
+                cwd=str(wt_path),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "worker commit"],
+                cwd=str(wt_path),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            result = mgr.merge_worktree(worker.task_id)
+            self.assertTrue(result)
+
+            # File should appear in the spawning worktree, not main repo
+            self.assertTrue((spawn_path / "spawned.txt").exists())
+
+            # Clean up worktree
+            subprocess.run(
+                ["git", "worktree", "remove", str(spawn_path), "--force"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+            )
+
+    def test_merge_nonexistent_task_returns_false(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _init_repo(tmpdir)
+            mgr = WorktreeManager(project_root=root, state_root=root)
+            mgr.start_fleet()
+            self.assertFalse(mgr.merge_worktree("nonexistent"))
+
+
 class TestExtractFileReferences(unittest.TestCase):
     def test_backtick_paths(self) -> None:
         text = "Edit `src/router.py` and `tests/test_router.py`"

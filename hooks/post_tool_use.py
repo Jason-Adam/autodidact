@@ -217,29 +217,33 @@ def _run_quality_check(file_path: str) -> list[str]:
 
     if suffix == ".py":
         if _has_tool("ruff"):
-            # ruff check
+            # Auto-fix lint issues (imports, style, upgrades) in-place
+            with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+                subprocess.run(
+                    ["ruff", "check", "--fix", str(path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            # Auto-format in-place
+            with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+                subprocess.run(
+                    ["ruff", "format", str(path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+
+            # Report remaining lint issues (non-auto-fixable)
             try:
                 result = subprocess.run(
-                    ["ruff", "check", "--select=E,F", str(path)],
+                    ["ruff", "check", str(path)],
                     capture_output=True,
                     text=True,
                     timeout=10,
                 )
                 if result.stdout.strip():
                     issues.append(f"ruff: {result.stdout.strip()}")
-            except (subprocess.TimeoutExpired, OSError):
-                pass
-
-            # ruff format check
-            try:
-                result = subprocess.run(
-                    ["ruff", "format", "--check", str(path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                if result.returncode != 0:
-                    issues.append(f"ruff format: {path.name} needs formatting")
             except (subprocess.TimeoutExpired, OSError):
                 pass
 

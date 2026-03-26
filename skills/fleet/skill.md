@@ -36,9 +36,9 @@ Break the task into independent units. For each unit, declare:
 - **depends_on**: task_ids that must complete first (if any)
 - **success criteria**: How to verify completion
 
-### 1.5. Validate Wave
+### 1.5. Validate Wave (mandatory)
 
-Check that no two tasks in the same wave claim the same file. Use `WorktreeManager.validate_wave()` if uncertain.
+Run `WorktreeManager.validate_wave(tasks)` on your proposed task list before dispatching any wave. If conflicts are found, move conflicting tasks to separate waves or use `auto_partition_waves()` which handles this automatically.
 
 ### 1.6. Auto-Partition Waves
 
@@ -92,7 +92,8 @@ After all workers in a wave complete:
 
 ### 5. Merge
 
-After all waves complete:
+After all waves complete, merge each worker back. `merge_worktree()` runs the merge in the spawning worktree (your feature branch), not the main repo. On failure it automatically aborts the merge to keep the tree clean.
+
 ```bash
 python3 -c "
 import sys; sys.path.insert(0, 'REPO_PATH')
@@ -100,11 +101,15 @@ from src.worktree import WorktreeManager
 from pathlib import Path
 mgr = WorktreeManager(Path('CWD'))
 success = mgr.merge_worktree('TASK_ID')
-print(f'Merge: {\"success\" if success else \"CONFLICT\"}')
+print(f'Merge: {\"success\" if success else \"CONFLICT — auto-aborted, tree is clean\"}')
 "
 ```
 
-If merge conflicts occur, spawn a dedicated resolution worker.
+**If a merge fails:**
+1. The merge is auto-aborted — your working tree is clean, subsequent merges are safe
+2. Inspect the worker's changes: `git diff main..fleet/TASK_ID`
+3. Either: manually merge with `git merge fleet/TASK_ID` and resolve conflicts, or spawn a dedicated resolution worker with the diff context
+4. After resolution, update the worker status and continue with remaining merges
 
 ### 6. Cleanup
 
