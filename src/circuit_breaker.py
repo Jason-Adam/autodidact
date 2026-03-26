@@ -28,12 +28,12 @@ class BreakerPhase(Enum):
 
 
 # 3-state transition thresholds
-NO_PROGRESS_THRESHOLD = 3
-SAME_ERROR_THRESHOLD = 5
+NO_PROGRESS_THRESHOLD = 5
+SAME_ERROR_THRESHOLD = 2
 PERMISSION_DENIAL_THRESHOLD = 2
-HALF_OPEN_THRESHOLD = 2
+HALF_OPEN_THRESHOLD = 1
 COOLDOWN_MINUTES = 30
-NO_FILES_MODIFIED_THRESHOLD = 4
+NO_FILES_MODIFIED_THRESHOLD = 5
 
 
 @dataclass
@@ -151,7 +151,7 @@ class CircuitBreaker:
         # --- Files-modified tracking ---
         if analysis.files_modified > 0:
             self.state.consecutive_no_files_modified = 0
-        else:
+        elif not analysis.asking_questions:
             self.state.consecutive_no_files_modified += 1
 
         # --- Progress tracking ---
