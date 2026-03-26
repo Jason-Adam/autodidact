@@ -360,13 +360,15 @@ class WorktreeManager:
             self._save_state()
             return True
 
-        # Merge failed — abort to leave working tree clean
-        subprocess.run(
-            ["git", "merge", "--abort"],
-            cwd=str(self.merge_root),
-            capture_output=True,
-            text=True,
-        )
+        # Merge failed — abort if a merge is in progress to leave tree clean
+        merge_head = self.merge_root / ".git" / "MERGE_HEAD"
+        if merge_head.exists():
+            subprocess.run(
+                ["git", "merge", "--abort"],
+                cwd=str(self.merge_root),
+                capture_output=True,
+                text=True,
+            )
         worker.status = "failed"
         self._save_state()
         return False
@@ -382,9 +384,10 @@ class WorktreeManager:
 
         # Also clean any orphaned worktrees (with containment check)
         if self.worktree_base.exists():
-            base_resolved = str(self.worktree_base.resolve())
             for wt_dir in self.worktree_base.glob("fleet-*"):
-                if wt_dir.is_dir() and str(wt_dir.resolve()).startswith(base_resolved):
+                if wt_dir.is_dir() and wt_dir.resolve().is_relative_to(
+                    self.worktree_base.resolve()
+                ):
                     subprocess.run(
                         ["git", "worktree", "remove", str(wt_dir), "--force"],
                         cwd=str(self.project_root),

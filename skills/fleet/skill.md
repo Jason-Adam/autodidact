@@ -38,7 +38,7 @@ Break the task into independent units. For each unit, declare:
 
 ### 1.5. Validate Wave (mandatory)
 
-Run `WorktreeManager.validate_wave()` before dispatching any wave. If conflicts are found, move conflicting tasks to separate waves or use `auto_partition_waves()` which handles this automatically.
+Run `WorktreeManager.validate_wave(tasks)` on your proposed task list before dispatching any wave. If conflicts are found, move conflicting tasks to separate waves or use `auto_partition_waves()` which handles this automatically.
 
 ### 1.6. Auto-Partition Waves
 
