@@ -421,7 +421,8 @@ class WorktreeManager:
         # Resolve target files for each task
         resolved: list[list[str]] = []
         for task in tasks:
-            files = task.get("target_files") or extract_file_references(task.get("description", ""))
+            tf = task.get("target_files")
+            files = tf if tf is not None else extract_file_references(task.get("description", ""))
             resolved.append(files)
 
         # Pairwise intersection check
@@ -453,7 +454,8 @@ class WorktreeManager:
 
         graph = TaskGraph(max_per_wave=max_per_wave)
         for task in tasks:
-            files = task.get("target_files") or extract_file_references(task.get("description", ""))
+            tf = task.get("target_files")
+            files = tf if tf is not None else extract_file_references(task.get("description", ""))
             node = TaskNode(
                 task_id=task["task_id"],
                 description=task.get("description", ""),

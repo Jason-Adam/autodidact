@@ -98,14 +98,14 @@ class TaskGraph:
             if not ready:
                 raise ValueError(f"Cycle detected in task graph involving {len(remaining)} tasks")
 
-            # Split into sub-waves of max_per_wave
-            for i in range(0, len(ready), self.max_per_wave):
-                waves.append(ready[i : i + self.max_per_wave])
+            # Emit one wave (up to max_per_wave), update in-degrees,
+            # then recompute readiness so newly-unblocked tasks can
+            # join the next wave instead of waiting an extra round.
+            wave = ready[: self.max_per_wave]
+            waves.append(wave)
 
-            # Remove dispatched tasks, decrement in-degrees
-            for tid in ready:
+            for tid in wave:
                 remaining.remove(tid)
-                # Decrement in-degree for tasks that depended on this one
                 for other_tid in remaining:
                     if tid in edges.get(other_tid, set()):
                         in_degree[other_tid] -= 1
