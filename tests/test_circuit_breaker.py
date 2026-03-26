@@ -168,6 +168,19 @@ class TestThreeStateCircuitBreaker(unittest.TestCase):
         cb.record_iteration(question_progress, question_analysis)
         self.assertEqual(cb.state.consecutive_no_progress, 1)  # unchanged
 
+    def test_question_hold_no_files_modified(self) -> None:
+        cb = CircuitBreaker()
+
+        # One no-progress iteration with no files modified
+        cb.record_iteration(*self._no_progress("stuck"))
+        self.assertEqual(cb.state.consecutive_no_files_modified, 1)
+
+        # Question iteration should hold NFM counter steady too
+        question_progress = FakeProgress()
+        question_analysis = FakeAnalysis(asking_questions=True, work_summary="question?")
+        cb.record_iteration(question_progress, question_analysis)
+        self.assertEqual(cb.state.consecutive_no_files_modified, 1)  # unchanged
+
     def test_permission_denial_fast_path(self) -> None:
         cb = CircuitBreaker()
 
