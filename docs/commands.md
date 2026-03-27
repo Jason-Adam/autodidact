@@ -8,6 +8,14 @@
 
 Routes through the cost-ascending classifier (pattern match -> active state -> keyword heuristic -> plan structure -> LLM). Most requests resolve with zero LLM tokens.
 
+## `/research` — standalone codebase research
+
+```
+/research how does the authentication flow work?
+```
+
+Runs a Socratic **Clarify** phase (calibrated by question specificity), then spawns parallel sub-agents to investigate, synthesizes findings, and persists a structured research document to `.planning/research/`. Use when you need to understand code without planning implementation.
+
 ## `/plan` — clarify, research, design
 
 ```
