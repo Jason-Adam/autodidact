@@ -23,9 +23,9 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 0)
 
-    def test_research_routes_to_plan(self) -> None:
+    def test_research_routes_to_research(self) -> None:
         r = classify("/do research")
-        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertEqual(r.skill, "autodidact-research")
         self.assertEqual(r.tier, 0)
 
     def test_direct_fleet(self) -> None:
@@ -142,6 +142,16 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
     def test_parallel_routes_to_fleet(self) -> None:
         r = classify("execute these tasks in parallel across worktrees")
         self.assertEqual(r.skill, "autodidact-fleet")
+        self.assertEqual(r.tier, 2)
+
+    def test_research_keyword_routes_to_research(self) -> None:
+        r = classify("deep dive into the authentication flow")
+        self.assertEqual(r.skill, "autodidact-research")
+        self.assertEqual(r.tier, 2)
+
+    def test_investigate_routes_to_research(self) -> None:
+        r = classify("investigate how the database connections work")
+        self.assertEqual(r.skill, "autodidact-research")
         self.assertEqual(r.tier, 2)
 
     def test_plan_routes_to_plan(self) -> None:
@@ -362,6 +372,10 @@ class TestModelRouting(unittest.TestCase):
     def test_fleet_gets_sonnet(self) -> None:
         r = classify("fleet")
         self.assertEqual(r.model, "sonnet")
+
+    def test_research_gets_opus(self) -> None:
+        r = classify("/do research")
+        self.assertEqual(r.model, "opus")
 
     def test_campaign_gets_opus(self) -> None:
         r = classify("/do campaign")
