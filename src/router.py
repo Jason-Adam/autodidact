@@ -29,6 +29,7 @@ SKILL_MODEL_MAP: dict[str, str] = {
     "forget": "haiku",
     "direct": "haiku",
     # Sonnet tier — standard work
+    "research": "opus",
     "plan": "sonnet",
     "run": "sonnet",
     "fleet": "sonnet",
@@ -50,7 +51,7 @@ SKILL_MODEL_MAP: dict[str, str] = {
 
 _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?interview\b", "plan"),  # consolidated into /plan (Clarify phase)
-    (r"^/?(do\s+)?research\b", "plan"),  # consolidated into /plan (Research phase)
+    (r"^/?(do\s+)?research\b", "research"),
     (r"^/?(do\s+)?plan\b", "plan"),
     (r"^/?(do\s+)?fleet\b", "fleet"),
     (r"^/do\s+run\b", "run"),  # requires /do prefix to avoid matching "run the tests"
@@ -273,24 +274,28 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("persist", 0.2),
         ("continue tomorrow", 0.4),
     ],
+    "research": [
+        ("research", 0.5),
+        ("explore", 0.3),
+        ("investigate", 0.4),
+        ("understand", 0.2),
+        ("how does", 0.3),
+        ("architecture", 0.2),
+        ("trace", 0.3),
+        ("analyze", 0.3),
+        ("deep dive", 0.5),
+    ],
     "plan": [
         ("plan", 0.5),
         ("design", 0.3),
         ("approach", 0.3),
         ("strategy", 0.3),
         ("implementation plan", 0.5),
-        # Former /interview keywords
         ("clarify", 0.4),
         ("unclear", 0.4),
         ("ambiguous", 0.4),
         ("requirements", 0.3),
         ("scope", 0.2),
-        # Former /research keywords
-        ("explore", 0.3),
-        ("investigate", 0.4),
-        ("understand", 0.2),
-        ("how does", 0.3),
-        ("architecture", 0.2),
     ],
     "review": [
         ("review", 0.5),
@@ -387,6 +392,7 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
 # with project-scoped skills (e.g. crsdigital:create-plan vs autodidact-plan).
 _AUTODIDACT_SKILLS: frozenset[str] = frozenset(
     {
+        "research",
         "plan",
         "run",
         "fleet",

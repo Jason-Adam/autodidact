@@ -23,9 +23,9 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 0)
 
-    def test_research_routes_to_plan(self) -> None:
+    def test_research_routes_to_research(self) -> None:
         r = classify("/do research")
-        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertEqual(r.skill, "autodidact-research")
         self.assertEqual(r.tier, 0)
 
     def test_direct_fleet(self) -> None:
