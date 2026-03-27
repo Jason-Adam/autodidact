@@ -106,7 +106,7 @@ Structure the document as follows:
 Save the research document to `.planning/research/` using `src/documents.py`:
 
 ```bash
-uv run python3 -c "
+python3 -c "
 import sys; sys.path.insert(0, 'REPO_PATH')
 from src.documents import save_document
 path = save_document(RESEARCH_CONTENT, 'research', 'TOPIC', 'CWD')
