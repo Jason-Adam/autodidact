@@ -144,6 +144,16 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-fleet")
         self.assertEqual(r.tier, 2)
 
+    def test_research_keyword_routes_to_research(self) -> None:
+        r = classify("deep dive into the authentication flow")
+        self.assertEqual(r.skill, "autodidact-research")
+        self.assertEqual(r.tier, 2)
+
+    def test_investigate_routes_to_research(self) -> None:
+        r = classify("investigate how the database connections work")
+        self.assertEqual(r.skill, "autodidact-research")
+        self.assertEqual(r.tier, 2)
+
     def test_plan_routes_to_plan(self) -> None:
         r = classify("design an implementation plan for the auth feature")
         self.assertEqual(r.skill, "autodidact-plan")
@@ -362,6 +372,10 @@ class TestModelRouting(unittest.TestCase):
     def test_fleet_gets_sonnet(self) -> None:
         r = classify("fleet")
         self.assertEqual(r.model, "sonnet")
+
+    def test_research_gets_opus(self) -> None:
+        r = classify("/do research")
+        self.assertEqual(r.model, "opus")
 
     def test_campaign_gets_opus(self) -> None:
         r = classify("/do campaign")

@@ -29,7 +29,6 @@ SKILL_MODEL_MAP: dict[str, str] = {
     "forget": "haiku",
     "direct": "haiku",
     # Sonnet tier — standard work
-    "research": "opus",
     "plan": "sonnet",
     "run": "sonnet",
     "fleet": "sonnet",
@@ -40,6 +39,7 @@ SKILL_MODEL_MAP: dict[str, str] = {
     "sync-thoughts": "sonnet",
     "learn": "sonnet",
     # Opus tier — complex reasoning
+    "research": "opus",
     "campaign": "opus",
     "loop": "opus",
     "classify": "opus",
