@@ -28,24 +28,11 @@ If the user mentions specific files, tickets, or documents:
 
 Sharpen the research question before spawning expensive sub-agents. Even well-scoped questions benefit from Socratic questioning — it surfaces blind spots, identifies adjacent areas worth investigating, and ensures sub-agent prompts are precise.
 
-1. Spawn the `interviewer` agent using the Agent tool with a prompt that includes the user's research question and any context from Step 1. Give the agent a `name` (e.g., `"interviewer"`) so you can continue the conversation.
-2. When the interviewer returns a question, present it to the user.
-3. When the user answers, relay their answer back to the interviewer via `SendMessage`. **You MUST include a `summary` parameter** — this is a platform requirement when `message` is a string. The summary should condense the interview state so far (e.g., `"Clarify phase round 2/3. User wants to understand JWT flow. Previous answer narrowed scope to token refresh."`).
-4. Repeat until the interviewer signals clarity is sufficient or maximum rounds are reached.
+Follow the shared interviewer mechanics in `templates/clarify_protocol.md`.
 
-**Calibration by specificity:**
+**Exit criteria** (research-specific — calibrated by question specificity):
 - **Vague questions** (e.g., "how does auth work"): up to 3 rounds to narrow scope, identify specific components, and surface what the user actually needs to learn
 - **Specific questions** (e.g., "trace JWT validation in src/auth/middleware.py"): 1 round to confirm scope and surface any adjacent areas worth including
-- **The user says "just go"**: skip remaining rounds and proceed with what you have
-
-> **SendMessage contract**: Every `SendMessage` call to the interviewer MUST include `summary` (string). Omitting it when `message` is a string causes `Error: summary is required when message is a string`. Example:
-> ```
-> SendMessage(to: "interviewer", message: "User's answer here...", summary: "Round 2. User confirmed focus on token refresh flow.")
-> ```
-
-**Brownfield awareness**: When codebase context is available, include specific files/patterns in the initial agent prompt so the interviewer asks CONFIRMATION questions, not open-ended discovery.
-- GOOD: "I see JWT middleware in `src/auth/`. Should the research focus on this specifically?"
-- BAD: "Do you have any authentication set up?"
 
 ### Step 3: Decompose the Research Question
 
