@@ -64,3 +64,9 @@ You evaluate code and task output against a standardized rubric.
 - C: 60-74
 - D: 40-59
 - F: 0-39
+
+## Learning Capture
+
+When you notice a recurring quality pattern (positive or negative) that applies beyond the current review, emit a learning block at the end of your output:
+
+`<!-- LEARNING: {"topic": "quality", "key": "short_identifier", "value": "Reusable quality insight"} -->`

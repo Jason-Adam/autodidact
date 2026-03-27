@@ -24,6 +24,23 @@ from src.rtk_integration import (
     get_rtk_savings_summary,
     is_rtk_installed,
 )
+from src.session_miner import mine_and_record
+
+
+def _should_run_weekly(marker_path: Path, today: str) -> bool:
+    """Check if a weekly-throttled task should run based on its marker file."""
+    try:
+        last_run = marker_path.read_text().strip()
+        last_date = datetime.strptime(last_run, "%Y-%m-%d").replace(tzinfo=UTC)
+        return (datetime.now(UTC) - last_date) >= timedelta(days=7)
+    except (OSError, ValueError):
+        return True
+
+
+def _stamp_weekly(marker_path: Path, today: str) -> None:
+    """Write today's date to a weekly throttle marker file."""
+    with contextlib.suppress(OSError):
+        marker_path.write_text(today)
 
 
 def main() -> None:
@@ -69,22 +86,28 @@ def main() -> None:
             )
 
         # RTK discover -> learning DB (weekly)
-        last_discover_path = Path(db.db_path).parent / ".last_rtk_discover"
-        should_discover = True
-        try:
-            last_discover = last_discover_path.read_text().strip()
-            last_date = datetime.strptime(last_discover, "%Y-%m-%d").replace(tzinfo=UTC)
-            should_discover = (datetime.now(UTC) - last_date) >= timedelta(days=7)
-        except (OSError, ValueError):
-            pass
-        if should_discover:
+        rtk_marker = Path(db.db_path).parent / ".last_rtk_discover"
+        if _should_run_weekly(rtk_marker, today):
             recorded = feed_discover_to_db(project_path, db)
             if recorded > 0:
                 messages.append(
                     f"RTK discover: {recorded} optimization tips recorded to learning DB"
                 )
-            with contextlib.suppress(OSError):
-                last_discover_path.write_text(today)
+            _stamp_weekly(rtk_marker, today)
+
+        # Session mining -> learning DB (weekly)
+        mine_marker = Path(db.db_path).parent / ".last_session_mine"
+        if _should_run_weekly(mine_marker, today) and project_path:
+            try:
+                mine_result = mine_and_record(project_path, db)
+                if mine_result.get("learnings_recorded", 0) > 0:
+                    messages.append(
+                        f"Session mining: {mine_result['learnings_recorded']} error patterns "
+                        f"from {mine_result['sessions_scanned']} sessions"
+                    )
+                _stamp_weekly(mine_marker, today)
+            except Exception:
+                pass  # Graceful degradation — don't stamp marker on failure
 
         # Inject progressive learnings for current project
         # Derive topic hint from project directory name for FTS relevance

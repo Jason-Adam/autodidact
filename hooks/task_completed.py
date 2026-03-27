@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""TaskCompleted hook: quality gate scoring, learning feedback.
+"""TaskCompleted hook: learning feedback on task completion.
 
 Fires when a task completes. Non-blocking (exit 0).
-Evaluates task output quality and feeds scores back into learning confidence.
+Boosts confidence of learnings that were accessed during the session.
 """
 
 from __future__ import annotations
@@ -15,18 +15,6 @@ _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
 from src.db import LearningDB
-
-_STATE_DIR = Path.home() / ".claude" / "autodidact"
-# Marker file so stop.py can detect whether any task completed this session
-_TASK_SUCCESS_PATH = _STATE_DIR / "task_success.json"
-
-
-def _mark_task_success(session_id: str) -> None:
-    """Write a marker indicating a task completed successfully in this session."""
-    import contextlib
-
-    with contextlib.suppress(OSError):
-        _TASK_SUCCESS_PATH.write_text(json.dumps({"session_id": session_id}))
 
 
 def main() -> None:
@@ -47,9 +35,6 @@ def main() -> None:
             for row in accessed:
                 db.boost(row["id"], amount=0.05)
                 db.set_outcome(row["id"], "success")
-
-            # Mark that a task succeeded in this session
-            _mark_task_success(session_id)
 
         db.close()
     except Exception:

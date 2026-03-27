@@ -46,3 +46,9 @@ A → B → C
 ### Key Boundaries
 - [boundary description and where it exists]
 ```
+
+## Learning Capture
+
+When you discover an architectural convention, an undocumented dependency relationship, or a cross-cutting concern that would help future work, emit a learning block at the end of your output:
+
+`<!-- LEARNING: {"topic": "architecture", "key": "short_identifier", "value": "Reusable architectural insight"} -->`

@@ -46,3 +46,9 @@ What this component does in 1-2 sentences.
 - [what this depends on]
 - [what depends on this]
 ```
+
+## Learning Capture
+
+When you discover an undocumented convention, a hidden coupling, or a data flow pattern worth remembering, emit a learning block at the end of your output:
+
+`<!-- LEARNING: {"topic": "codebase", "key": "short_identifier", "value": "Reusable codebase insight"} -->`
