@@ -31,8 +31,9 @@ def _should_run_weekly(marker_path: Path, today: str) -> bool:
     """Check if a weekly-throttled task should run based on its marker file."""
     try:
         last_run = marker_path.read_text().strip()
+        today_date = datetime.strptime(today, "%Y-%m-%d").replace(tzinfo=UTC)
         last_date = datetime.strptime(last_run, "%Y-%m-%d").replace(tzinfo=UTC)
-        return (datetime.now(UTC) - last_date) >= timedelta(days=7)
+        return (today_date - last_date) >= timedelta(days=7)
     except (OSError, ValueError):
         return True
 

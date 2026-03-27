@@ -35,7 +35,7 @@ def _session_modified_files(cwd: str) -> bool:
         return False
     try:
         result = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD"],
+            ["git", "status", "--porcelain"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -52,7 +52,7 @@ def main() -> None:
     except (json.JSONDecodeError, EOFError):
         hook_input = {}
 
-    session_id = hook_input.get("session_id", "")
+    session_id = hook_input.get("session_id") or hook_input.get("sessionId") or ""
 
     try:
         db = LearningDB()
