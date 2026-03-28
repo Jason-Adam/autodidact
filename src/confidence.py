@@ -23,6 +23,9 @@ PRUNE_MAX_AGE_DAYS = 90
 INJECTION_MIN_CONFIDENCE = 0.3
 INJECTION_LIMIT = 5
 
+BOOST_TASK_COMPLETED = 0.05  # task_completed hook
+BOOST_FILE_CHANGE = 0.03  # stop hook when session modified files
+
 OBSERVATION_INITIAL_CONFIDENCE = 0.30  # At injection floor — immediately eligible
 
 

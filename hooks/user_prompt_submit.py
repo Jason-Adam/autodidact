@@ -16,8 +16,8 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from src.confidence import INJECTION_MIN_CONFIDENCE
-from src.db import LearningDB
+from src.confidence import INJECTION_LIMIT, INJECTION_MIN_CONFIDENCE  # noqa: E402
+from src.db import LearningDB  # noqa: E402
 
 
 def main() -> None:
@@ -39,7 +39,9 @@ def main() -> None:
         db = LearningDB()
 
         # FTS5 query for relevant learnings
-        learnings = db.query_fts(prompt, limit=5, min_confidence=INJECTION_MIN_CONFIDENCE)
+        learnings = db.query_fts(
+            prompt, limit=INJECTION_LIMIT, min_confidence=INJECTION_MIN_CONFIDENCE
+        )
         if learnings:
             lines = ["RELEVANT LEARNINGS:"]
             for entry in learnings:

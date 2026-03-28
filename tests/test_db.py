@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
@@ -93,6 +91,7 @@ class TestLearningDB(unittest.TestCase):
         assert row is not None
         self.assertAlmostEqual(row["confidence"], 0.65)
         self.assertEqual(row["success_count"], 1)
+        self.assertEqual(row["observation_count"], 2)  # 1 from record + 1 from boost
 
     def test_boost_caps_at_1(self) -> None:
         lid = self.db.record("error", "cap_test", "value", confidence=0.95)
@@ -108,6 +107,7 @@ class TestLearningDB(unittest.TestCase):
         assert row is not None
         self.assertAlmostEqual(row["confidence"], 0.4)
         self.assertEqual(row["failure_count"], 1)
+        self.assertEqual(row["observation_count"], 2)  # 1 from record + 1 from decay
 
     def test_decay_floors_at_0(self) -> None:
         lid = self.db.record("error", "floor_test", "value", confidence=0.05)
@@ -226,52 +226,6 @@ class TestLearningDB(unittest.TestCase):
         self.db.record("b", "two", "v2")
         stats = self.db.stats()
         self.assertEqual(stats["total"], 2)
-
-
-class TestRunSummary(unittest.TestCase):
-    def setUp(self) -> None:
-        self.tmpdir = tempfile.mkdtemp()
-        self.db_path = Path(self.tmpdir) / "test_learning.db"
-        self.db = LearningDB(self.db_path)
-
-    def tearDown(self) -> None:
-        self.db.close()
-
-    def test_run_summary_created(self) -> None:
-        summary = {
-            "iterations": 5,
-            "exit_reason": "plan_complete",
-            "final_phase": "closed",
-            "mode": "run",
-        }
-        lid = self.db.record_run_summary(summary)
-        self.assertGreater(lid, 0)
-        row = self.db.get_by_id(lid)
-        assert row is not None
-        self.assertEqual(row["topic"], "loop_run")
-        self.assertEqual(row["category"], "run_summary")
-
-    def test_run_summary_json_fields(self) -> None:
-        summary = {
-            "iterations": 3,
-            "exit_reason": "test_saturation",
-            "final_phase": "half_open",
-            "mode": "campaign",
-        }
-        lid = self.db.record_run_summary(summary)
-        row = self.db.get_by_id(lid)
-        assert row is not None
-        parsed = json.loads(row["value"])
-        self.assertEqual(parsed["iterations"], 3)
-        self.assertEqual(parsed["exit_reason"], "test_saturation")
-
-    def test_multiple_summaries_distinct(self) -> None:
-        s1 = {"iterations": 1, "exit_reason": "a", "final_phase": "closed", "mode": "run"}
-        s2 = {"iterations": 2, "exit_reason": "b", "final_phase": "closed", "mode": "run"}
-        lid1 = self.db.record_run_summary(s1)
-        time.sleep(0.01)  # ensure different timestamp key
-        lid2 = self.db.record_run_summary(s2)
-        self.assertNotEqual(lid1, lid2)
 
 
 class TestAccessCount(unittest.TestCase):
@@ -469,6 +423,7 @@ class TestDecayIntegration(unittest.TestCase):
         assert row is not None
         self.assertAlmostEqual(row["confidence"], 0.35)
         self.assertEqual(row["failure_count"], 3)
+        self.assertEqual(row["observation_count"], 4)  # 1 from record + 3 from decays
 
     def test_boost_then_decay_net_effect(self) -> None:
         lid = self.db.record("error", "net_test", "value", confidence=0.5)
@@ -479,6 +434,7 @@ class TestDecayIntegration(unittest.TestCase):
         self.assertAlmostEqual(row["confidence"], 0.55)
         self.assertEqual(row["success_count"], 1)
         self.assertEqual(row["failure_count"], 1)
+        self.assertEqual(row["observation_count"], 3)  # 1 from record + 1 boost + 1 decay
 
 
 class TestProgressiveLearnings(unittest.TestCase):

@@ -28,7 +28,10 @@ sys.path.insert(0, str(_REPO))
 
 from constants import TOOL_BASH, TOOL_EDIT, TOOL_WRITE  # noqa: E402
 
-from src.confidence import OBSERVATION_INITIAL_CONFIDENCE, initial_confidence_for_outcome
+from src.confidence import (
+    OBSERVATION_INITIAL_CONFIDENCE,
+    initial_confidence_for_outcome,
+)
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
 
@@ -344,7 +347,7 @@ def main() -> None:
                 and pending_fix.get("session_id", "") == session_id
             ):
                 # Same error reappeared after we surfaced a fix — decay that learning
-                db.decay(pending_fix["learning_id"], amount=0.10)
+                db.decay(pending_fix["learning_id"])
                 _clear_pending_fix()
 
             # Check if we know this error
