@@ -6,9 +6,10 @@ import io
 import json
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-_REPO = __import__("pathlib").Path(__file__).resolve().parent.parent
+_REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
 from hooks.pre_tool_use import main  # noqa: E402
@@ -71,8 +72,17 @@ class TestFileProtection(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(out["decision"], "block")
 
+    def test_blocks_env_write_via_write_tool(self) -> None:
+        code, out = _run_hook("Write", {"file_path": "/app/.env"})
+        self.assertEqual(code, 2)
+        self.assertEqual(out["decision"], "block")
+
     def test_allows_normal_edit(self) -> None:
         code, out = _run_hook("Edit", {"file_path": "/app/src/main.py"})
+        self.assertEqual(code, 0)
+
+    def test_allows_normal_write(self) -> None:
+        code, out = _run_hook("Write", {"file_path": "/app/src/main.py"})
         self.assertEqual(code, 0)
 
 
