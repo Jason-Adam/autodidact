@@ -21,8 +21,12 @@ import sys
 import time
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parent.parent
+_HOOKS = Path(__file__).resolve().parent
+_REPO = _HOOKS.parent
+sys.path.insert(0, str(_HOOKS))
 sys.path.insert(0, str(_REPO))
+
+from constants import TOOL_BASH, TOOL_EDIT, TOOL_WRITE  # noqa: E402
 
 from src.confidence import OBSERVATION_INITIAL_CONFIDENCE, initial_confidence_for_outcome
 from src.db import LearningDB
@@ -32,7 +36,7 @@ from src.git_utils import resolve_main_repo
 
 _OBSERVATION_MIN_OUTPUT_LEN = 50
 _OBSERVATION_MAX_VALUE_LEN = 300
-_OBSERVATION_TOOLS = ("Bash",)
+_OBSERVATION_TOOLS = (TOOL_BASH,)
 
 _SKIP_COMMAND_PREFIXES = (
     "cat ",
@@ -60,7 +64,7 @@ def _extract_observation(
 
     Returns {"key": str, "value": str, "tags": str} or None if not worth recording.
     """
-    if tool_name != "Bash":
+    if tool_name != TOOL_BASH:
         return None
 
     command = tool_input.get("command", "")
@@ -376,7 +380,7 @@ def main() -> None:
         # tool calls. The pending fix is cleaned up at session end by stop.py.
 
         # Per-edit quality checks
-        if tool_name in ("Edit", "Write") and not is_error:
+        if tool_name in (TOOL_EDIT, TOOL_WRITE) and not is_error:
             file_path = tool_input.get("file_path", "")
             if file_path:
                 issues = _run_quality_check(file_path)
