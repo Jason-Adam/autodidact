@@ -17,6 +17,8 @@ You are a planning orchestrator. You take a vague or specific request and produc
 
 ## Protocol
 
+In all code blocks in this skill, replace `REPO_PATH` with the absolute path to the autodidact repo root (where `src/documents.py` lives), `CWD` with the root path of the project you're planning for (NOT the autodidact repo), and `TOPIC` with a short description.
+
 ### Phase 1: Clarify (always runs)
 
 This phase always runs, even when requirements appear clear. Well-scoped requests still benefit from Socratic questioning — it surfaces blind spots, identifies low-information areas, and sharpens constraints before committing to a plan.
@@ -35,8 +37,6 @@ Follow the shared interviewer mechanics in `templates/clarify_protocol.md`.
 **Entry condition**: The task touches code you haven't read, or the architecture is unfamiliar.
 
 **Skip condition**: The task is small, the user pointed to specific files, or you already have enough context from the Clarify phase.
-
-In all code blocks in this skill, replace `REPO_PATH` with the absolute path to the autodidact repo root (where `src/documents.py` lives), `CWD` with the current working directory (the project you're planning for — NOT the autodidact repo), and `TOPIC` with a short description.
 
 When entering this phase:
 1. Decompose the research into 2-4 focused questions
