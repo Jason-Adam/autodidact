@@ -59,6 +59,8 @@ for i, wave in enumerate(waves, 1):
 "
 ```
 
+In all code blocks in this skill, replace `REPO_PATH` with the absolute path to the autodidact repo root and `CWD` with the current working directory (the project you're running fleet on — NOT the autodidact repo).
+
 Review the computed wave structure. Override only if the algorithm missed a semantic dependency not captured by file overlap or explicit depends_on.
 
 ### 2. Create Worktrees

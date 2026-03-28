@@ -36,6 +36,8 @@ Follow the shared interviewer mechanics in `templates/clarify_protocol.md`.
 
 **Skip condition**: The task is small, the user pointed to specific files, or you already have enough context from the Clarify phase.
 
+In all code blocks in this skill, replace `REPO_PATH` with the absolute path to the autodidact repo root (where `src/documents.py` lives), `CWD` with the current working directory (the project you're planning for — NOT the autodidact repo), and `TOPIC` with a short description.
+
 When entering this phase:
 1. Decompose the research into 2-4 focused questions
 2. Spawn analysis agents in parallel using the Agent tool:

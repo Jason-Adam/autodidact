@@ -114,7 +114,7 @@ print(f'Saved: {path}')
 "
 ```
 
-Replace `REPO_PATH` with the absolute path to the autodidact repo root, `CWD` with the current working directory, and `TOPIC` with a short description of the research topic.
+Replace `REPO_PATH` with the absolute path to the autodidact repo root (where `src/documents.py` lives), `CWD` with the current working directory (the project you're researching — NOT the autodidact repo), and `TOPIC` with a short description of the research topic.
 
 ### Step 8: Present and Offer Next Steps
 
