@@ -70,16 +70,23 @@ def main() -> None:
             if deleted > 0:
                 messages.append(f"Pruned {deleted} stale learning(s).")
 
-        # Auto-graduate eligible learnings
-        candidates = db.get_graduation_candidates()
-        if candidates:
-            graduated = []
-            for candidate in candidates:
-                dest = "CLAUDE.md (auto-graduated)"
-                if db.graduate(candidate["id"], dest):
-                    graduated.append(candidate["key"])
-            if graduated:
-                messages.append(f"Graduated {len(graduated)} learning(s): {', '.join(graduated)}")
+        # Auto-graduate eligible learnings (daily, alongside pruning)
+        if should_prune:
+            candidates = db.get_graduation_candidates()
+            if candidates:
+                graduated = []
+                for candidate in candidates:
+                    dest = "CLAUDE.md (auto-graduated)"
+                    if db.graduate(candidate["id"], dest):
+                        graduated.append(candidate["key"])
+                if graduated:
+                    max_listed = 5
+                    listed = graduated[:max_listed]
+                    remaining = len(graduated) - len(listed)
+                    msg = f"Graduated {len(graduated)} learning(s): {', '.join(listed)}"
+                    if remaining > 0:
+                        msg += f" (and {remaining} more)"
+                    messages.append(msg)
 
         # RTK token savings
         if is_rtk_installed():
