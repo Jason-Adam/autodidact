@@ -12,6 +12,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from src.confidence import (
+    BOOST_DEFAULT,
+    CONFIDENCE_FLOOR,
+    CONFIDENCE_MIN,
+    DECAY_DEFAULT,
+    GRADUATION_CONFIDENCE,
+    GRADUATION_MIN_OBSERVATIONS,
+    PRUNE_CONFIDENCE,
+    PRUNE_MAX_AGE_DAYS,
+    TIME_DECAY_RATE,
+)
+
 DEFAULT_DB_PATH = Path.home() / ".claude" / "autodidact" / "learning.db"
 
 SCHEMA_VERSION = 3
@@ -322,11 +334,12 @@ class LearningDB:
 
     # ── Confidence ──────────────────────────────────────────────────────
 
-    def boost(self, learning_id: int, amount: float = 0.15) -> None:
+    def boost(self, learning_id: int, amount: float = BOOST_DEFAULT) -> None:
         self.conn.execute(
             """
             UPDATE learnings
             SET confidence = MIN(confidence + ?, 1.0),
+                observation_count = observation_count + 1,
                 success_count = success_count + 1,
                 last_seen = ?
             WHERE id = ?
@@ -335,20 +348,21 @@ class LearningDB:
         )
         self.conn.commit()
 
-    def decay(self, learning_id: int, amount: float = 0.10) -> None:
+    def decay(self, learning_id: int, amount: float = DECAY_DEFAULT) -> None:
         self.conn.execute(
             """
             UPDATE learnings
-            SET confidence = MAX(confidence - ?, 0.0),
+            SET confidence = MAX(confidence - ?, ?),
+                observation_count = observation_count + 1,
                 failure_count = failure_count + 1,
                 last_seen = ?
             WHERE id = ?
             """,
-            (amount, _now_iso(), learning_id),
+            (amount, CONFIDENCE_MIN, _now_iso(), learning_id),
         )
         self.conn.commit()
 
-    def time_decay(self, learning_ids: list[int], rate: float = 0.01) -> None:
+    def time_decay(self, learning_ids: list[int], rate: float = TIME_DECAY_RATE) -> None:
         """Apply time-based decay. Called on session Stop."""
         now = datetime.now(UTC)
         for lid in learning_ids:
@@ -366,7 +380,7 @@ class LearningDB:
             if days <= 0:
                 continue
             decay_amount = days * rate
-            new_confidence = max(row["confidence"] - decay_amount, 0.1)
+            new_confidence = max(row["confidence"] - decay_amount, CONFIDENCE_FLOOR)
             self.conn.execute(
                 "UPDATE learnings SET confidence = ? WHERE id = ?",
                 (new_confidence, lid),
@@ -380,7 +394,10 @@ class LearningDB:
         row = self.get_by_id(learning_id)
         if not row:
             return False
-        if row["confidence"] < 0.9 or row["observation_count"] < 5:
+        if (
+            row["confidence"] < GRADUATION_CONFIDENCE
+            or row["observation_count"] < GRADUATION_MIN_OBSERVATIONS
+        ):
             return False
         self.conn.execute(
             "UPDATE learnings SET graduated_to = ? WHERE id = ?",
@@ -394,16 +411,22 @@ class LearningDB:
             """
             SELECT * FROM learnings
             WHERE graduated_to = ''
-              AND confidence >= 0.9
-              AND observation_count >= 5
+              AND confidence >= ?
+              AND observation_count >= ?
             ORDER BY confidence DESC, observation_count DESC
             """,
+            (GRADUATION_CONFIDENCE, GRADUATION_MIN_OBSERVATIONS),
         ).fetchall()
         return [dict(r) for r in rows]
 
     # ── Prune ───────────────────────────────────────────────────────────
 
-    def prune(self, *, max_age_days: int = 90, min_confidence: float = 0.1) -> int:
+    def prune(
+        self,
+        *,
+        max_age_days: int = PRUNE_MAX_AGE_DAYS,
+        min_confidence: float = PRUNE_CONFIDENCE,
+    ) -> int:
         """Delete stale low-confidence learnings. Returns count deleted."""
         cutoff = datetime.now(UTC)
         cursor = self.conn.execute(
@@ -458,21 +481,6 @@ class LearningDB:
             """
         ).fetchone()
         return dict(row) if row else {}
-
-    def record_run_summary(
-        self, run_result: dict[str, Any], *, session_id: str = "", project_path: str = ""
-    ) -> int:
-        """Record a loop run summary. Thin wrapper around record()."""
-        return self.record(
-            topic="loop_run",
-            key=f"run_{_now_iso().replace(':', '').replace('-', '').replace('+', '')}",
-            value=json.dumps(run_result),
-            category="run_summary",
-            confidence=0.5,
-            source="loop_driver",
-            session_id=session_id,
-            project_path=project_path,
-        )
 
     def set_outcome(self, learning_id: int, outcome: str) -> None:
         """Update the outcome field on a learning."""

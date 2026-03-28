@@ -14,7 +14,8 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from src.db import LearningDB
+from src.confidence import BOOST_TASK_COMPLETED  # noqa: E402
+from src.db import LearningDB  # noqa: E402
 
 
 def main() -> None:
@@ -33,7 +34,7 @@ def main() -> None:
         if session_id:
             accessed = db.get_accessed_in_session(session_id)
             for row in accessed:
-                db.boost(row["id"], amount=0.05)
+                db.boost(row["id"], amount=BOOST_TASK_COMPLETED)
                 db.set_outcome(row["id"], "success")
 
         db.close()

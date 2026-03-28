@@ -14,7 +14,8 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from src.db import LearningDB
+from src.confidence import BOOST_FILE_CHANGE  # noqa: E402
+from src.db import LearningDB  # noqa: E402
 
 _STATE_DIR = Path.home() / ".claude" / "autodidact"
 # Pending fix tracker written by post_tool_use.py
@@ -68,7 +69,7 @@ def main() -> None:
             cwd = hook_input.get("cwd", "")
             if cwd and _session_modified_files(cwd):
                 for entry in accessed:
-                    db.boost(entry["id"], amount=0.03)
+                    db.boost(entry["id"], amount=BOOST_FILE_CHANGE)
 
         _cleanup_session_markers()
         db.close()
