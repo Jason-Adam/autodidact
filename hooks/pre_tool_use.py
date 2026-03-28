@@ -11,6 +11,11 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from constants import TOOL_BASH, TOOL_EDIT, TOOL_SEND_MESSAGE, TOOL_WRITE  # noqa: E402
 
 # Protected file patterns (block writes)
 PROTECTED_PATTERNS = [
@@ -91,7 +96,7 @@ def main() -> None:
     tool_input = hook_input.get("tool_input", {})
 
     # Check file protection on Edit/Write
-    if tool_name in ("Edit", "Write"):
+    if tool_name in (TOOL_EDIT, TOOL_WRITE):
         file_path = tool_input.get("file_path", "")
         for pattern in PROTECTED_PATTERNS:
             if re.search(pattern, file_path):
@@ -105,7 +110,7 @@ def main() -> None:
                 sys.exit(2)
 
     # Check dangerous commands on Bash
-    if tool_name == "Bash":
+    if tool_name == TOOL_BASH:
         command = tool_input.get("command", "")
         for pattern in DANGEROUS_COMMANDS:
             if re.search(pattern, command):
@@ -128,6 +133,23 @@ def main() -> None:
                     sys.stdout,
                 )
                 sys.exit(2)
+
+    # Validate SendMessage includes summary when message is a string
+    if tool_name == TOOL_SEND_MESSAGE:
+        message = tool_input.get("message")
+        summary = tool_input.get("summary", "")
+        if isinstance(message, str) and not summary:
+            json.dump(
+                {
+                    "decision": "block",
+                    "reason": (
+                        "SendMessage with a string message requires a 'summary' parameter. "
+                        "Include a brief summary of the conversation state so far."
+                    ),
+                },
+                sys.stdout,
+            )
+            sys.exit(2)
 
     # Allow everything else
     json.dump({}, sys.stdout)
