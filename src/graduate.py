@@ -32,6 +32,11 @@ def _sanitize_filename(text: str) -> str:
     return slug[:60]  # cap length
 
 
+def _escape_yaml(text: str) -> str:
+    """Escape a string for use inside YAML double-quoted scalars."""
+    return text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+
+
 def _count_memory_entries(memory_md: Path) -> int:
     """Count non-empty link entries in MEMORY.md."""
     if not memory_md.exists():
@@ -59,16 +64,18 @@ def _build_memory_content(candidate: dict[str, Any]) -> tuple[str, str, str]:
 
     slug = _sanitize_filename(key)
     filename = f"graduated_{slug}.md"
-    description = (
-        f"Graduated learning [{topic}/{key}]: {value[:80]}{'...' if len(value) > 80 else ''}"
-    )
+    value_preview = value[:80] + ("..." if len(value) > 80 else "")
+    description = f"Graduated learning [{topic}/{key}]: {value_preview}"
 
     conf = candidate["confidence"]
     obs = candidate["observation_count"]
 
+    safe_key = _escape_yaml(key)
+    safe_desc = _escape_yaml(description[:120])
+
     content = f"""---
-name: "{key}"
-description: "{description[:120]}"
+name: "{safe_key}"
+description: "{safe_desc}"
 type: feedback
 ---
 
@@ -99,24 +106,25 @@ def graduate_to_memory(
     # Ensure memory directory exists
     mem_dir.mkdir(parents=True, exist_ok=True)
 
+    # Ensure MEMORY.md exists with header
+    if not memory_md.exists():
+        memory_md.write_text("# Memory Index\n\n")
+
     # Check overflow before starting
     current_count = _count_memory_entries(memory_md)
 
     graduated: list[dict[str, Any]] = []
+    new_entries: list[str] = []
 
     for candidate in candidates:
         if _should_skip(candidate):
             continue
 
-        if current_count >= MEMORY_INDEX_CAP:
-            break
-
         filename, description, content = _build_memory_content(candidate)
         memory_file = mem_dir / filename
 
-        # Avoid overwriting existing memory files (e.g., from a prior graduation)
+        # Already-written files still count as graduated (idempotent)
         if memory_file.exists():
-            # Use the existing path — still counts as graduated
             graduated.append(
                 {
                     "id": candidate["id"],
@@ -126,19 +134,16 @@ def graduate_to_memory(
             )
             continue
 
+        # Cap check applies only to new writes
+        if current_count >= MEMORY_INDEX_CAP:
+            break
+
         # Write memory file
         memory_file.write_text(content)
 
-        # Append to MEMORY.md
+        # Collect MEMORY.md entry for batch append
         short_desc = description[:120]
-        entry = f"- [{filename}]({filename}) — {short_desc}\n"
-        if memory_md.exists():
-            existing = memory_md.read_text()
-            if not existing.endswith("\n"):
-                existing += "\n"
-            memory_md.write_text(existing + entry)
-        else:
-            memory_md.write_text("# Memory Index\n\n" + entry)
+        new_entries.append(f"- [{filename}]({filename}) — {short_desc}\n")
 
         current_count += 1
         graduated.append(
@@ -148,5 +153,10 @@ def graduate_to_memory(
                 "memory_path": str(memory_file),
             }
         )
+
+    # Batch-append all new entries to MEMORY.md (single write, not per-item)
+    if new_entries:
+        with open(memory_md, "a") as f:
+            f.writelines(new_entries)
 
     return graduated

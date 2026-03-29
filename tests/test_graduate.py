@@ -5,12 +5,14 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from src.graduate import (
     MEMORY_INDEX_CAP,
     _build_memory_content,
     _count_memory_entries,
     _encode_project_path,
+    _escape_yaml,
     _sanitize_filename,
     _should_skip,
     graduate_to_memory,
@@ -30,6 +32,15 @@ class TestHelpers(unittest.TestCase):
         # Long names get truncated
         long_name = "a" * 100
         self.assertLessEqual(len(_sanitize_filename(long_name)), 60)
+
+    def test_escape_yaml_quotes(self) -> None:
+        self.assertEqual(_escape_yaml('say "hello"'), 'say \\"hello\\"')
+
+    def test_escape_yaml_newlines(self) -> None:
+        self.assertEqual(_escape_yaml("line1\nline2"), "line1 line2")
+
+    def test_escape_yaml_backslash(self) -> None:
+        self.assertEqual(_escape_yaml("path\\to"), "path\\\\to")
 
     def test_should_skip_error_signature(self) -> None:
         self.assertTrue(_should_skip({"error_signature": "abc123"}))
@@ -64,15 +75,36 @@ class TestBuildMemoryContent(unittest.TestCase):
         self.assertIn("0.95", content)
         self.assertIn("7 observations", content)
 
+    def test_escapes_yaml_special_chars(self) -> None:
+        candidate = {
+            "key": 'use "quotes" carefully',
+            "topic": "style",
+            "value": "Avoid unescaped quotes in YAML.",
+            "confidence": 0.92,
+            "observation_count": 6,
+        }
+        _, _, content = _build_memory_content(candidate)
+        # The frontmatter name field should have escaped quotes
+        self.assertIn('\\"quotes\\"', content)
+        # Should still be valid YAML structure (no unescaped inner quotes)
+        lines = content.split("\n")
+        name_line = [ln for ln in lines if ln.startswith("name:")][0]
+        # Count quotes — should be balanced (opening + closing + escaped pairs)
+        self.assertTrue(name_line.startswith('name: "'))
+        self.assertTrue(name_line.endswith('"'))
+
 
 class TestGraduateToMemory(unittest.TestCase):
     def setUp(self) -> None:
         self.tmpdir = tempfile.mkdtemp()
-        # Simulate the Claude Code projects directory structure
         self.project_path = f"{self.tmpdir}/fakerepo"
         Path(self.project_path).mkdir(parents=True)
-        # We need to patch _memory_dir since it uses Path.home()
-        # Instead, we'll test the full function with a real temp dir
+        self.mem_dir = Path(self.tmpdir) / "memory"
+        self._patcher = patch("src.graduate._memory_dir", return_value=self.mem_dir)
+        self._patcher.start()
+
+    def tearDown(self) -> None:
+        self._patcher.stop()
 
     def _make_candidate(
         self,
@@ -97,7 +129,6 @@ class TestGraduateToMemory(unittest.TestCase):
 
     def test_skips_error_signature_candidates(self) -> None:
         candidates = [self._make_candidate(error_signature="hash123")]
-        # Use a mock project path — won't actually write since all skipped
         results = graduate_to_memory(candidates, self.project_path)
         self.assertEqual(results, [])
 
@@ -109,105 +140,106 @@ class TestGraduateToMemory(unittest.TestCase):
         self.assertEqual(graduate_to_memory(candidates, ""), [])
 
     def test_writes_memory_file_and_index(self) -> None:
-        """Integration test using monkeypatched _memory_dir."""
-        import src.graduate as grad_mod
+        candidates = [self._make_candidate(key="use_ruff")]
+        results = graduate_to_memory(candidates, self.project_path)
 
-        mem_dir = Path(self.tmpdir) / "memory"
-        original_fn = grad_mod._memory_dir
-        grad_mod._memory_dir = lambda _path: mem_dir
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["key"], "use_ruff")
 
-        try:
-            candidates = [self._make_candidate(key="use_ruff")]
-            results = graduate_to_memory(candidates, self.project_path)
+        # Memory file exists
+        memory_file = self.mem_dir / "graduated_use_ruff.md"
+        self.assertTrue(memory_file.exists())
+        content = memory_file.read_text()
+        self.assertIn("type: feedback", content)
+        self.assertIn("Test value", content)
 
-            self.assertEqual(len(results), 1)
-            self.assertEqual(results[0]["key"], "use_ruff")
-
-            # Memory file exists
-            memory_file = mem_dir / "graduated_use_ruff.md"
-            self.assertTrue(memory_file.exists())
-            content = memory_file.read_text()
-            self.assertIn("type: feedback", content)
-            self.assertIn("Test value", content)
-
-            # MEMORY.md updated
-            memory_md = mem_dir / "MEMORY.md"
-            self.assertTrue(memory_md.exists())
-            index_content = memory_md.read_text()
-            self.assertIn("graduated_use_ruff.md", index_content)
-        finally:
-            grad_mod._memory_dir = original_fn
+        # MEMORY.md updated
+        memory_md = self.mem_dir / "MEMORY.md"
+        self.assertTrue(memory_md.exists())
+        index_content = memory_md.read_text()
+        self.assertIn("graduated_use_ruff.md", index_content)
 
     def test_skips_existing_memory_file(self) -> None:
         """If a memory file already exists, still return it but don't overwrite."""
-        import src.graduate as grad_mod
+        self.mem_dir.mkdir(parents=True)
+        (self.mem_dir / "MEMORY.md").write_text("# Memory Index\n\n")
 
-        mem_dir = Path(self.tmpdir) / "memory"
-        mem_dir.mkdir(parents=True)
-        original_fn = grad_mod._memory_dir
-        grad_mod._memory_dir = lambda _path: mem_dir
+        # Pre-create the memory file
+        existing = self.mem_dir / "graduated_existing_key.md"
+        existing.write_text("original content")
 
-        try:
-            # Pre-create the memory file
-            existing = mem_dir / "graduated_existing_key.md"
-            existing.write_text("original content")
+        candidates = [self._make_candidate(key="existing_key")]
+        results = graduate_to_memory(candidates, self.project_path)
 
-            candidates = [self._make_candidate(key="existing_key")]
-            results = graduate_to_memory(candidates, self.project_path)
+        self.assertEqual(len(results), 1)
+        # File should NOT be overwritten
+        self.assertEqual(existing.read_text(), "original content")
 
-            self.assertEqual(len(results), 1)
-            # File should NOT be overwritten
-            self.assertEqual(existing.read_text(), "original content")
-        finally:
-            grad_mod._memory_dir = original_fn
+    def test_existing_file_graduated_even_at_cap(self) -> None:
+        """Already-written files are returned regardless of cap."""
+        self.mem_dir.mkdir(parents=True)
+
+        # Fill MEMORY.md to cap
+        lines = ["# Memory Index\n\n"]
+        for i in range(MEMORY_INDEX_CAP):
+            lines.append(f"- [f{i}.md](f{i}.md) — desc\n")
+        (self.mem_dir / "MEMORY.md").write_text("".join(lines))
+
+        # Pre-create the memory file
+        existing = self.mem_dir / "graduated_at_cap.md"
+        existing.write_text("already here")
+
+        candidates = [self._make_candidate(key="at_cap")]
+        results = graduate_to_memory(candidates, self.project_path)
+
+        # Should still be returned — exists check comes before cap check
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["key"], "at_cap")
 
     def test_respects_memory_index_cap(self) -> None:
         """Stop graduating when MEMORY.md hits the cap."""
-        import src.graduate as grad_mod
+        self.mem_dir.mkdir(parents=True)
 
-        mem_dir = Path(self.tmpdir) / "memory"
-        mem_dir.mkdir(parents=True)
-        original_fn = grad_mod._memory_dir
-        grad_mod._memory_dir = lambda _path: mem_dir
+        # Pre-fill MEMORY.md to cap
+        lines = ["# Memory Index\n\n"]
+        for i in range(MEMORY_INDEX_CAP):
+            lines.append(f"- [f{i}.md](f{i}.md) — desc\n")
+        (self.mem_dir / "MEMORY.md").write_text("".join(lines))
 
-        try:
-            # Pre-fill MEMORY.md to just below cap
-            lines = ["# Memory Index\n\n"]
-            for i in range(MEMORY_INDEX_CAP):
-                lines.append(f"- [f{i}.md](f{i}.md) — desc\n")
-            (mem_dir / "MEMORY.md").write_text("".join(lines))
+        candidates = [self._make_candidate(id=1, key="overflow_key")]
+        results = graduate_to_memory(candidates, self.project_path)
 
-            candidates = [self._make_candidate(id=1, key="overflow_key")]
-            results = graduate_to_memory(candidates, self.project_path)
-
-            # Should be empty — cap reached
-            self.assertEqual(results, [])
-        finally:
-            grad_mod._memory_dir = original_fn
+        # Should be empty — cap reached and file doesn't already exist
+        self.assertEqual(results, [])
 
     def test_multiple_candidates_mixed(self) -> None:
         """Mix of error-signature (skipped) and normal (graduated) candidates."""
-        import src.graduate as grad_mod
+        candidates = [
+            self._make_candidate(id=1, key="normal_one"),
+            self._make_candidate(id=2, key="error_one", error_signature="hash"),
+            self._make_candidate(id=3, key="normal_two"),
+        ]
+        results = graduate_to_memory(candidates, self.project_path)
 
-        mem_dir = Path(self.tmpdir) / "memory"
-        original_fn = grad_mod._memory_dir
-        grad_mod._memory_dir = lambda _path: mem_dir
+        self.assertEqual(len(results), 2)
+        keys = [r["key"] for r in results]
+        self.assertIn("normal_one", keys)
+        self.assertIn("normal_two", keys)
+        self.assertNotIn("error_one", keys)
 
-        try:
-            candidates = [
-                self._make_candidate(id=1, key="normal_one"),
-                self._make_candidate(id=2, key="error_one", error_signature="hash"),
-                self._make_candidate(id=3, key="normal_two"),
-            ]
-            results = graduate_to_memory(candidates, self.project_path)
+    def test_batch_appends_to_memory_md(self) -> None:
+        """Multiple new entries should be appended in one write."""
+        candidates = [
+            self._make_candidate(id=1, key="first"),
+            self._make_candidate(id=2, key="second"),
+        ]
+        results = graduate_to_memory(candidates, self.project_path)
 
-            self.assertEqual(len(results), 2)
-            keys = [r["key"] for r in results]
-            self.assertIn("normal_one", keys)
-            self.assertIn("normal_two", keys)
-            self.assertNotIn("error_one", keys)
-        finally:
-            grad_mod._memory_dir = original_fn
+        self.assertEqual(len(results), 2)
+        memory_md = self.mem_dir / "MEMORY.md"
+        content = memory_md.read_text()
+        self.assertIn("graduated_first.md", content)
+        self.assertIn("graduated_second.md", content)
 
 
 if __name__ == "__main__":
