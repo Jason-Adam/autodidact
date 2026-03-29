@@ -19,6 +19,7 @@ sys.path.insert(0, str(_REPO))
 from src.confidence import INJECTION_MIN_CONFIDENCE
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
+from src.graduate import graduate_to_memory
 from src.rtk_integration import (
     feed_discover_to_db,
     get_rtk_savings_summary,
@@ -70,23 +71,29 @@ def main() -> None:
             if deleted > 0:
                 messages.append(f"Pruned {deleted} stale learning(s).")
 
-        # Auto-graduate eligible learnings (daily, alongside pruning)
+        # Auto-graduate eligible learnings to memory system (daily, alongside pruning)
+        # Wrapped in its own try/except so a filesystem error can't disable
+        # the rest of the hook (injection, campaign detection, etc.)
         if should_prune:
-            candidates = db.get_graduation_candidates()
-            if candidates:
-                graduated = []
-                for candidate in candidates:
-                    dest = "CLAUDE.md (auto-graduated)"
-                    if db.graduate(candidate["id"], dest):
-                        graduated.append(candidate["key"])
-                if graduated:
-                    max_listed = 5
-                    listed = graduated[:max_listed]
-                    remaining = len(graduated) - len(listed)
-                    msg = f"Graduated {len(graduated)} learning(s): {', '.join(listed)}"
-                    if remaining > 0:
-                        msg += f" (and {remaining} more)"
-                    messages.append(msg)
+            try:
+                candidates = db.get_graduation_candidates()
+                if candidates and project_path:
+                    results = graduate_to_memory(candidates, project_path)
+                    graduated_keys = []
+                    for result in results:
+                        if db.graduate(result["id"], result["memory_path"]):
+                            graduated_keys.append(result["key"])
+                    if graduated_keys:
+                        max_listed = 5
+                        listed = graduated_keys[:max_listed]
+                        remaining = len(graduated_keys) - len(listed)
+                        keys_str = ", ".join(listed)
+                        msg = f"Graduated {len(graduated_keys)} learning(s) to memory: {keys_str}"
+                        if remaining > 0:
+                            msg += f" (and {remaining} more)"
+                        messages.append(msg)
+            except Exception:
+                pass  # Graceful degradation — don't block other hook behavior
 
         # RTK token savings
         if is_rtk_installed():
