@@ -72,7 +72,7 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/do\s+loop\b", "loop"),  # requires /do prefix to avoid matching "loop through..."
     (r"^/?loop$", "loop"),  # bare "loop" with no arguments
     (r"^/?(do\s+)?gc\b", "gc"),
-    (r"^/?(do\s+)?(create.?pr|pr)\b", "create-pr"),
+    (r"^/?(do\s+)?(create[-\s]?pr|pr)\b", "create-pr"),
 ]
 
 
@@ -341,10 +341,10 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
     ],
     "create-pr": [
         ("pull request", 0.6),
-        ("pr", 0.5),
         ("open a pr", 0.6),
         ("create pr", 0.6),
         ("merge request", 0.5),
+        ("submit pr", 0.5),
     ],
     "learn_status": [
         ("token savings", 0.6),

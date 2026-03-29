@@ -23,8 +23,7 @@ You are a pull request creation agent. You analyze the full branch diff, write a
 
 2. **Handle uncommitted changes**:
    - Run `git status` to check for uncommitted changes
-   - If there are uncommitted changes, ask the user if they want to commit first
-   - If yes, run the `/gc` skill, then continue
+   - If there are uncommitted changes, auto-commit them by running the `/gc` skill, then continue
 
 3. **Check for existing PR**:
    - Run `gh pr view --json url,number,title,state 2>/dev/null`
@@ -56,8 +55,9 @@ You are a pull request creation agent. You analyze the full branch diff, write a
    - Do NOT create a template file in the repo — just use the default inline
 
 6. **Gather context**:
-   - Get the full diff: `git diff main...HEAD` (or the appropriate base branch)
-   - Get commit history: `git log main..HEAD --oneline`
+   - Detect the default branch: `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'` — fall back to `main` if the command fails
+   - Get the full diff: `git diff <default-branch>...HEAD`
+   - Get commit history: `git log <default-branch>..HEAD --oneline`
    - Read through the diff carefully — understand every change
 
 7. **Analyze changes**:
