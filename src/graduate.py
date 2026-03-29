@@ -16,8 +16,8 @@ MEMORY_INDEX_CAP = 150
 
 
 def _encode_project_path(project_path: str) -> str:
-    """Encode a project path the way Claude Code does: replace / with -."""
-    return project_path.replace("/", "-")
+    """Encode a project path into a safe Claude Code project key."""
+    return project_path.replace("/", "-").replace("\\", "-").replace(":", "-")
 
 
 def _memory_dir(project_path: str) -> Path:
@@ -48,6 +48,13 @@ def _count_memory_entries(memory_md: Path) -> int:
     return count
 
 
+def _is_indexed(memory_md: Path, filename: str) -> bool:
+    """Check if a filename already has an entry in MEMORY.md."""
+    if not memory_md.exists():
+        return False
+    return f"({filename})" in memory_md.read_text()
+
+
 def _should_skip(candidate: dict[str, Any]) -> bool:
     """Error-signature learnings stay in DB — they're surfaced via FTS5 on demand."""
     return bool(candidate.get("error_signature"))
@@ -62,8 +69,9 @@ def _build_memory_content(candidate: dict[str, Any]) -> tuple[str, str, str]:
     topic = candidate["topic"]
     value = candidate["value"]
 
-    slug = _sanitize_filename(key)
-    filename = f"graduated_{slug}.md"
+    topic_slug = _sanitize_filename(topic)
+    key_slug = _sanitize_filename(key)
+    filename = f"graduated_{topic_slug}_{key_slug}.md"
     value_preview = value[:80] + ("..." if len(value) > 80 else "")
     description = f"Graduated learning [{topic}/{key}]: {value_preview}"
 
@@ -125,6 +133,14 @@ def graduate_to_memory(
 
         # Already-written files still count as graduated (idempotent)
         if memory_file.exists():
+            # Ensure the file is indexed in MEMORY.md (may be missing if
+            # a prior run wrote the file but crashed before updating index)
+            if _is_indexed(memory_md, filename):
+                pass
+            elif current_count < MEMORY_INDEX_CAP:
+                short_desc = description[:120]
+                new_entries.append(f"- [{filename}]({filename}) — {short_desc}\n")
+                current_count += 1
             graduated.append(
                 {
                     "id": candidate["id"],

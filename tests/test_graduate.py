@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,6 +14,7 @@ from src.graduate import (
     _count_memory_entries,
     _encode_project_path,
     _escape_yaml,
+    _is_indexed,
     _sanitize_filename,
     _should_skip,
     graduate_to_memory,
@@ -24,6 +26,12 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(
             _encode_project_path("/Users/jason/code/myproject"),
             "-Users-jason-code-myproject",
+        )
+
+    def test_encode_project_path_windows(self) -> None:
+        self.assertEqual(
+            _encode_project_path("C:\\Users\\jason\\code"),
+            "C--Users-jason-code",
         )
 
     def test_sanitize_filename(self) -> None:
@@ -56,6 +64,18 @@ class TestHelpers(unittest.TestCase):
     def test_count_memory_entries_missing_file(self) -> None:
         self.assertEqual(_count_memory_entries(Path("/nonexistent/MEMORY.md")), 0)
 
+    def test_is_indexed_found(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md = Path(tmpdir) / "MEMORY.md"
+            md.write_text("- [foo.md](foo.md) — desc\n")
+            self.assertTrue(_is_indexed(md, "foo.md"))
+
+    def test_is_indexed_not_found(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md = Path(tmpdir) / "MEMORY.md"
+            md.write_text("- [foo.md](foo.md) — desc\n")
+            self.assertFalse(_is_indexed(md, "bar.md"))
+
 
 class TestBuildMemoryContent(unittest.TestCase):
     def test_produces_frontmatter(self) -> None:
@@ -67,13 +87,35 @@ class TestBuildMemoryContent(unittest.TestCase):
             "observation_count": 7,
         }
         filename, description, content = _build_memory_content(candidate)
-        self.assertEqual(filename, "graduated_always_check_types.md")
+        self.assertEqual(filename, "graduated_python_always_check_types.md")
         self.assertIn("python/always_check_types", description)
         self.assertIn("---", content)
         self.assertIn("type: feedback", content)
         self.assertIn("Always run mypy", content)
         self.assertIn("0.95", content)
         self.assertIn("7 observations", content)
+
+    def test_includes_topic_in_filename(self) -> None:
+        """Different topics with same key produce different filenames."""
+        c1 = {
+            "key": "check_types",
+            "topic": "python",
+            "value": "v",
+            "confidence": 0.9,
+            "observation_count": 5,
+        }
+        c2 = {
+            "key": "check_types",
+            "topic": "rust",
+            "value": "v",
+            "confidence": 0.9,
+            "observation_count": 5,
+        }
+        f1, _, _ = _build_memory_content(c1)
+        f2, _, _ = _build_memory_content(c2)
+        self.assertNotEqual(f1, f2)
+        self.assertIn("python", f1)
+        self.assertIn("rust", f2)
 
     def test_escapes_yaml_special_chars(self) -> None:
         candidate = {
@@ -89,7 +131,6 @@ class TestBuildMemoryContent(unittest.TestCase):
         # Should still be valid YAML structure (no unescaped inner quotes)
         lines = content.split("\n")
         name_line = [ln for ln in lines if ln.startswith("name:")][0]
-        # Count quotes — should be balanced (opening + closing + escaped pairs)
         self.assertTrue(name_line.startswith('name: "'))
         self.assertTrue(name_line.endswith('"'))
 
@@ -105,6 +146,7 @@ class TestGraduateToMemory(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._patcher.stop()
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def _make_candidate(
         self,
@@ -146,8 +188,8 @@ class TestGraduateToMemory(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["key"], "use_ruff")
 
-        # Memory file exists
-        memory_file = self.mem_dir / "graduated_use_ruff.md"
+        # Memory file exists (now includes topic in filename)
+        memory_file = self.mem_dir / "graduated_test_use_ruff.md"
         self.assertTrue(memory_file.exists())
         content = memory_file.read_text()
         self.assertIn("type: feedback", content)
@@ -157,15 +199,15 @@ class TestGraduateToMemory(unittest.TestCase):
         memory_md = self.mem_dir / "MEMORY.md"
         self.assertTrue(memory_md.exists())
         index_content = memory_md.read_text()
-        self.assertIn("graduated_use_ruff.md", index_content)
+        self.assertIn("graduated_test_use_ruff.md", index_content)
 
     def test_skips_existing_memory_file(self) -> None:
         """If a memory file already exists, still return it but don't overwrite."""
         self.mem_dir.mkdir(parents=True)
         (self.mem_dir / "MEMORY.md").write_text("# Memory Index\n\n")
 
-        # Pre-create the memory file
-        existing = self.mem_dir / "graduated_existing_key.md"
+        # Pre-create the memory file (with topic in filename)
+        existing = self.mem_dir / "graduated_test_existing_key.md"
         existing.write_text("original content")
 
         candidates = [self._make_candidate(key="existing_key")]
@@ -175,18 +217,36 @@ class TestGraduateToMemory(unittest.TestCase):
         # File should NOT be overwritten
         self.assertEqual(existing.read_text(), "original content")
 
+    def test_existing_file_gets_indexed(self) -> None:
+        """An existing file missing from MEMORY.md should get an index entry."""
+        self.mem_dir.mkdir(parents=True)
+        (self.mem_dir / "MEMORY.md").write_text("# Memory Index\n\n")
+
+        # Pre-create the memory file but DON'T add to index
+        existing = self.mem_dir / "graduated_test_orphan_key.md"
+        existing.write_text("orphan content")
+
+        candidates = [self._make_candidate(key="orphan_key")]
+        results = graduate_to_memory(candidates, self.project_path)
+
+        self.assertEqual(len(results), 1)
+        # Should now appear in the index
+        index = (self.mem_dir / "MEMORY.md").read_text()
+        self.assertIn("graduated_test_orphan_key.md", index)
+
     def test_existing_file_graduated_even_at_cap(self) -> None:
-        """Already-written files are returned regardless of cap."""
+        """Already-written and indexed files are returned regardless of cap."""
         self.mem_dir.mkdir(parents=True)
 
-        # Fill MEMORY.md to cap
+        # Fill MEMORY.md to cap, including the test file's entry
         lines = ["# Memory Index\n\n"]
-        for i in range(MEMORY_INDEX_CAP):
+        lines.append("- [graduated_test_at_cap.md](graduated_test_at_cap.md) — desc\n")
+        for i in range(MEMORY_INDEX_CAP - 1):
             lines.append(f"- [f{i}.md](f{i}.md) — desc\n")
         (self.mem_dir / "MEMORY.md").write_text("".join(lines))
 
         # Pre-create the memory file
-        existing = self.mem_dir / "graduated_at_cap.md"
+        existing = self.mem_dir / "graduated_test_at_cap.md"
         existing.write_text("already here")
 
         candidates = [self._make_candidate(key="at_cap")]
@@ -238,8 +298,8 @@ class TestGraduateToMemory(unittest.TestCase):
         self.assertEqual(len(results), 2)
         memory_md = self.mem_dir / "MEMORY.md"
         content = memory_md.read_text()
-        self.assertIn("graduated_first.md", content)
-        self.assertIn("graduated_second.md", content)
+        self.assertIn("graduated_test_first.md", content)
+        self.assertIn("graduated_test_second.md", content)
 
 
 if __name__ == "__main__":
