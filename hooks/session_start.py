@@ -19,6 +19,7 @@ sys.path.insert(0, str(_REPO))
 from src.confidence import INJECTION_MIN_CONFIDENCE
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
+from src.graduate import graduate_to_memory
 from src.rtk_integration import (
     feed_discover_to_db,
     get_rtk_savings_summary,
@@ -75,8 +76,6 @@ def main() -> None:
         # the rest of the hook (injection, campaign detection, etc.)
         if should_prune:
             try:
-                from src.graduate import graduate_to_memory
-
                 candidates = db.get_graduation_candidates()
                 if candidates and project_path:
                     results = graduate_to_memory(candidates, project_path)
