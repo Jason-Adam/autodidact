@@ -29,6 +29,8 @@ SKILL_MODEL_MAP: dict[str, str] = {
     "forget": "haiku",
     "direct": "haiku",
     # Sonnet tier — standard work
+    "gc": "sonnet",
+    "create-pr": "sonnet",
     "plan": "sonnet",
     "run": "sonnet",
     "fleet": "sonnet",
@@ -69,6 +71,8 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?experiment\b", "experiment"),
     (r"^/do\s+loop\b", "loop"),  # requires /do prefix to avoid matching "loop through..."
     (r"^/?loop$", "loop"),  # bare "loop" with no arguments
+    (r"^/?(do\s+)?gc\b", "gc"),
+    (r"^/?(do\s+)?(create.?pr|pr)\b", "create-pr"),
 ]
 
 
@@ -328,6 +332,20 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("try different", 0.3),
         ("improve performance", 0.4),
     ],
+    "gc": [
+        ("commit", 0.5),
+        ("committed", 0.3),
+        ("stage", 0.3),
+        ("git add", 0.4),
+        ("save changes", 0.4),
+    ],
+    "create-pr": [
+        ("pull request", 0.6),
+        ("pr", 0.5),
+        ("open a pr", 0.6),
+        ("create pr", 0.6),
+        ("merge request", 0.5),
+    ],
     "learn_status": [
         ("token savings", 0.6),
         ("token economics", 0.6),
@@ -404,6 +422,8 @@ _AUTODIDACT_SKILLS: frozenset[str] = frozenset(
         "polish",
         "sync-thoughts",
         "do",
+        "gc",
+        "create-pr",
     }
 )
 

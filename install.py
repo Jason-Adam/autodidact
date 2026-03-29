@@ -37,6 +37,8 @@ SKILL_DIRS = [
     "handoff",
     "sync-thoughts",
     "loop",
+    "gc",
+    "create-pr",
 ]
 AGENT_FILES = [
     "interviewer.md",
@@ -65,6 +67,8 @@ COMMAND_FILES = [
     "handoff.md",
     "sync-thoughts.md",
     "loop.md",
+    "gc.md",
+    "pr.md",
 ]
 
 HOOK_EVENTS = {

@@ -110,6 +110,36 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "forget")
         self.assertEqual(r.tier, 0)
 
+    def test_gc_direct(self) -> None:
+        r = classify("gc")
+        self.assertEqual(r.skill, "autodidact-gc")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_gc(self) -> None:
+        r = classify("/do gc")
+        self.assertEqual(r.skill, "autodidact-gc")
+        self.assertEqual(r.tier, 0)
+
+    def test_pr_direct(self) -> None:
+        r = classify("pr")
+        self.assertEqual(r.skill, "autodidact-create-pr")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_pr(self) -> None:
+        r = classify("/do pr")
+        self.assertEqual(r.skill, "autodidact-create-pr")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_create_pr(self) -> None:
+        r = classify("/do create-pr")
+        self.assertEqual(r.skill, "autodidact-create-pr")
+        self.assertEqual(r.tier, 0)
+
+    def test_create_pr_direct(self) -> None:
+        r = classify("create pr")
+        self.assertEqual(r.skill, "autodidact-create-pr")
+        self.assertEqual(r.tier, 0)
+
     def test_no_match(self) -> None:
         r = classify("build the widget")
         self.assertNotEqual(r.tier, 0)
@@ -179,6 +209,16 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
     def test_rtk_routes_to_learn_status(self) -> None:
         r = classify("rtk stats and learning stats")
         self.assertEqual(r.skill, "learn_status")
+        self.assertEqual(r.tier, 2)
+
+    def test_commit_keyword_routes_to_gc(self) -> None:
+        r = classify("commit these changes and stage everything")
+        self.assertEqual(r.skill, "autodidact-gc")
+        self.assertEqual(r.tier, 2)
+
+    def test_pull_request_keyword_routes_to_create_pr(self) -> None:
+        r = classify("open a pull request for this branch")
+        self.assertEqual(r.skill, "autodidact-create-pr")
         self.assertEqual(r.tier, 2)
 
     def test_low_score_falls_through(self) -> None:
