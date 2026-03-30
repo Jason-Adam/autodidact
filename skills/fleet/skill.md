@@ -1,8 +1,8 @@
 ---
-description: Parallel worktree wave orchestrator. Spawns multiple workers in isolated git worktrees with discovery brief compression between waves.
+description: Dependency-aware multi-wave orchestrator. Dispatches workers to isolated git worktrees with discovery brief compression between ordered waves.
 ---
 
-# /fleet — Parallel Execution
+# /fleet — Multi-Wave Execution
 
 ## Identity
 
@@ -31,7 +31,7 @@ Before dispatching new work, check for interrupted state:
 
 ### 1. Decompose into TaskNodes
 
-Break the task into independent units. For each unit, declare:
+Break the task into units (which may have cross-unit dependencies). For each unit, declare:
 - **task_id**: Short identifier (e.g., "auth", "billing", "tests")
 - **description**: What to do
 - **target_files**: Files to create/modify
