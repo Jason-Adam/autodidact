@@ -76,6 +76,7 @@ _LEGACY_COMMANDS = [
     "loop.md",
     "gc.md",
     "pr.md",
+    "polish.md",
 ]
 
 HOOK_EVENTS = {
@@ -124,7 +125,6 @@ def _patch_settings() -> None:
         event_hooks = hooks.get(event, [])
         for script in scripts:
             command = f"uv run --project {REPO_DIR} python3 {hooks_dir / script}"
-            # Check if already registered (also match legacy python3-only commands)
             # Check if already registered (match in hooks array or legacy top-level command)
             already = any(
                 # New format: hooks array

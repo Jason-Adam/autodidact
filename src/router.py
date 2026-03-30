@@ -60,7 +60,7 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?marshal\b", "run"),  # legacy alias
     (r"^/?(do\s+)?campaign\b", "campaign"),
     (r"^/?(do\s+)?archon\b", "campaign"),  # legacy alias
-    (r"^/?(do\s+)?learn.?status\b", "learn-status"),
+    (r"^/?(do\s+)?learn[-_\s]?status\b", "learn-status"),
     (r"^/?(do\s+)?learn\b", "learn"),
     (r"^/?(do\s+)?review\b", "polish"),
     (r"^/?(do\s+)?polish\b", "polish"),
@@ -430,8 +430,7 @@ _AUTODIDACT_SKILLS: frozenset[str] = frozenset(
 def _qualify_skill(name: str) -> str:
     """Add the autodidact- prefix for installed skills.
 
-    Signal values (``direct``, ``classify``) and the ``review`` alias
-    (which routes to ``autodidact-polish``) are returned bare.
+    Signal values (``direct``, ``classify``) are returned bare.
     """
     if name in _AUTODIDACT_SKILLS:
         return f"autodidact-{name}"
