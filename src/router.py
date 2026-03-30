@@ -440,7 +440,8 @@ _AUTODIDACT_SKILLS: frozenset[str] = frozenset(
 def _qualify_skill(name: str) -> str:
     """Add the autodidact- prefix for installed skills.
 
-    Signal values (``direct``, ``classify``) are returned bare.
+    Signal values (``direct``, ``classify``, ``batch``) are returned bare.
+    ``batch`` is a built-in Claude Code command, not an autodidact skill.
     """
     if name in _AUTODIDACT_SKILLS:
         return f"autodidact-{name}"
