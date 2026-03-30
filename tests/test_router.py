@@ -173,8 +173,13 @@ class TestTier1ActiveState(unittest.TestCase):
 
 
 class TestTier2KeywordHeuristic(unittest.TestCase):
-    def test_parallel_routes_to_fleet(self) -> None:
-        r = classify("execute these tasks in parallel across worktrees")
+    def test_parallel_routes_to_batch(self) -> None:
+        r = classify("execute these tasks in parallel concurrently")
+        self.assertEqual(r.skill, "batch")
+        self.assertEqual(r.tier, 2)
+
+    def test_worktree_wave_routes_to_fleet(self) -> None:
+        r = classify("dispatch these in multi-wave worktree execution")
         self.assertEqual(r.skill, "autodidact-fleet")
         self.assertEqual(r.tier, 2)
 
@@ -262,7 +267,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
             self.assertEqual(r.skill, "autodidact-run")
             self.assertIn("3 sequential phases", r.reasoning)
 
-    def test_independent_phases_route_fleet(self) -> None:
+    def test_independent_phases_route_batch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             self._write_plan(
                 tmpdir,
@@ -277,7 +282,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
                 ),
             )
             r = classify("implement the multi-module update", cwd=tmpdir)
-            self.assertEqual(r.skill, "autodidact-fleet")
+            self.assertEqual(r.skill, "batch")
             self.assertIn("independent phases", r.reasoning)
 
     def test_large_plan_routes_campaign(self) -> None:
@@ -353,7 +358,8 @@ class TestSelectLoopMode(unittest.TestCase):
             )
             self.assertEqual(select_loop_mode(tmpdir), "campaign")
 
-    def test_plan_with_independent_phases_returns_fleet(self) -> None:
+    def test_plan_with_independent_phases_returns_run(self) -> None:
+        """Independent phases route to batch, which maps to run in loop mode."""
         with tempfile.TemporaryDirectory() as tmpdir:
             self._write_plan(
                 tmpdir,
@@ -364,7 +370,7 @@ class TestSelectLoopMode(unittest.TestCase):
                     "### Phase 3: Notify\n- [ ] Edit `src/notify.py`\n"
                 ),
             )
-            self.assertEqual(select_loop_mode(tmpdir), "fleet")
+            self.assertEqual(select_loop_mode(tmpdir), "run")
 
     def test_plan_with_sequential_phases_returns_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
