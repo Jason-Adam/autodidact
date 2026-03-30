@@ -31,6 +31,8 @@ SKILL_DIRS = [
     "campaign",
     "fleet",
     "learn",
+    "learn-status",
+    "forget",
     "plan",
     "research",
     "polish",
@@ -54,6 +56,11 @@ AGENT_FILES = [
 ]
 COMMAND_FILES = [
     "do.md",
+]
+
+# Legacy commands removed in favor of routing through skills directly.
+# Listed here so uninstall cleans them up from ~/.claude/commands/.
+_LEGACY_COMMANDS = [
     "experiment.md",
     "run.md",
     "campaign.md",
@@ -69,6 +76,7 @@ COMMAND_FILES = [
     "loop.md",
     "gc.md",
     "pr.md",
+    "polish.md",
 ]
 
 HOOK_EVENTS = {
@@ -117,7 +125,6 @@ def _patch_settings() -> None:
         event_hooks = hooks.get(event, [])
         for script in scripts:
             command = f"uv run --project {REPO_DIR} python3 {hooks_dir / script}"
-            # Check if already registered (also match legacy python3-only commands)
             # Check if already registered (match in hooks array or legacy top-level command)
             already = any(
                 # New format: hooks array
@@ -218,7 +225,14 @@ def install() -> None:
         if source.exists():
             _symlink(source, CLAUDE_DIR / "agents" / f"autodidact-{agent}")
 
-    # Symlink commands (no prefix — user-facing)
+    # Clean up legacy command symlinks (now routed through skills)
+    for cmd in _LEGACY_COMMANDS:
+        target = CLAUDE_DIR / "commands" / cmd
+        if target.is_symlink():
+            target.unlink()
+            print(f"  -> Removed legacy commands/{cmd}")
+
+    # Symlink commands (only /do entry point)
     for cmd in COMMAND_FILES:
         source = REPO_DIR / "commands" / cmd
         if source.exists():
@@ -272,7 +286,7 @@ def uninstall() -> None:
             target.unlink()
             print(f"  -> Removed agents/autodidact-{agent}")
 
-    for cmd in COMMAND_FILES:
+    for cmd in COMMAND_FILES + _LEGACY_COMMANDS:
         target = CLAUDE_DIR / "commands" / cmd
         if target.is_symlink():
             target.unlink()

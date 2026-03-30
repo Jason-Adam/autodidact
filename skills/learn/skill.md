@@ -34,6 +34,22 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
 
 3. Confirm what was recorded and at what confidence level.
 
+### Mining (`/learn mine <project-path>`)
+
+1. Call `mine_and_record()` from `src.session_miner` with the given project path and the active LearningDB:
+   ```bash
+   python3 -c "
+   import sys, json; sys.path.insert(0, 'REPO_PATH')
+   from src.db import LearningDB
+   from src.session_miner import mine_and_record
+   db = LearningDB()
+   result = mine_and_record('PROJECT_PATH', db)
+   print(json.dumps(result, default=str, indent=2))
+   db.close()
+   "
+   ```
+2. Display the summary: sessions_scanned, commands_found, patterns_found, learnings_recorded
+
 ### Querying (`/learn query <search terms>`)
 
 1. Run FTS5 search against the learning DB:

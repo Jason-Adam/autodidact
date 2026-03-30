@@ -64,9 +64,14 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.tier, 0)
 
     def test_learn_status(self) -> None:
-        """learn_status is command-only, no autodidact- prefix."""
         r = classify("/do learn_status")
-        self.assertEqual(r.skill, "learn_status")
+        self.assertEqual(r.skill, "autodidact-learn-status")
+        self.assertEqual(r.tier, 0)
+
+    def test_learn_vs_learn_status_ambiguity(self) -> None:
+        """'learn status codes' should route to learn, not learn-status."""
+        r = classify("/do learn status codes are important")
+        self.assertEqual(r.skill, "autodidact-learn")
         self.assertEqual(r.tier, 0)
 
     def test_case_insensitive(self) -> None:
@@ -104,10 +109,9 @@ class TestTier0PatternMatch(unittest.TestCase):
         r = classify("loop through the array")
         self.assertNotEqual(r.skill, "autodidact-loop")
 
-    def test_forget_command_only(self) -> None:
-        """forget is command-only, no autodidact- prefix."""
+    def test_forget_routes_to_forget_skill(self) -> None:
         r = classify("/do forget")
-        self.assertEqual(r.skill, "forget")
+        self.assertEqual(r.skill, "autodidact-forget")
         self.assertEqual(r.tier, 0)
 
     def test_gc_direct(self) -> None:
@@ -189,10 +193,9 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 2)
 
-    def test_review_routes_to_review(self) -> None:
-        """review is command-only, no autodidact- prefix."""
+    def test_review_routes_to_polish(self) -> None:
         r = classify("code review the changes")
-        self.assertEqual(r.skill, "review")
+        self.assertEqual(r.skill, "autodidact-polish")
         self.assertEqual(r.tier, 2)
 
     def test_polish_keyword_routes(self) -> None:
@@ -201,14 +204,13 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.tier, 2)
 
     def test_token_savings_routes_to_learn_status(self) -> None:
-        """RTK/token-savings queries route to learn_status (no prefix)."""
         r = classify("show my token savings")
-        self.assertEqual(r.skill, "learn_status")
+        self.assertEqual(r.skill, "autodidact-learn-status")
         self.assertEqual(r.tier, 2)
 
     def test_rtk_routes_to_learn_status(self) -> None:
         r = classify("rtk stats and learning stats")
-        self.assertEqual(r.skill, "learn_status")
+        self.assertEqual(r.skill, "autodidact-learn-status")
         self.assertEqual(r.tier, 2)
 
     def test_commit_keyword_routes_to_gc(self) -> None:
@@ -305,7 +307,7 @@ class TestTier25PlanAnalysis(unittest.TestCase):
                 tmpdir, ("## Plan: Small fix\n### Phase 1: Fix\n- [ ] Edit `src/router.py`\n")
             )
             r = classify("code review the changes", cwd=tmpdir)
-            self.assertEqual(r.skill, "review")
+            self.assertEqual(r.skill, "autodidact-polish")
             self.assertEqual(r.tier, 2)
 
     def test_most_recent_plan_is_used(self) -> None:
@@ -422,7 +424,7 @@ class TestModelRouting(unittest.TestCase):
         self.assertEqual(r.model, "opus")
 
     def test_learn_status_gets_haiku(self) -> None:
-        r = classify("/do learn_status")
+        r = classify("/do learn-status")
         self.assertEqual(r.model, "haiku")
 
     def test_forget_gets_haiku(self) -> None:
