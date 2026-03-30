@@ -28,9 +28,11 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
    **Non-orchestration skills** (match these first):
    - `autodidact-experiment` — User wants iterative optimization against a metric
    - `autodidact-plan` — User needs to clarify, research, or plan (all three are one pipeline)
-   - `review` — User wants code review (command-only, no autodidact- prefix)
+   - `autodidact-polish` — User wants code review (also triggered by "review")
    - `autodidact-handoff` — User wants to create a session transfer document
    - `autodidact-learn` — User wants to teach autodidact something
+   - `autodidact-learn-status` — User wants to see knowledge inventory / learning stats
+   - `autodidact-forget` — User wants to decay or remove specific learnings
 
    **Orchestration skills** (use the complexity matrix below):
    | Signal | Route | Confidence cue |
@@ -42,7 +44,7 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 
    **Decision priority**: `direct` > `autodidact-fleet` (if parallelizable) > `autodidact-run` (if sequential) > `autodidact-campaign` (if scope exceeds one session). Prefer simpler orchestration when uncertain.
 
-   **IMPORTANT**: Always use the `autodidact-` prefix for skill names to ensure autodidact skills are invoked, not project-scoped alternatives. Exceptions: `direct` (signal, not a skill), `review`, `forget`, and `learn_status` (command-only, no autodidact- prefix).
+   **IMPORTANT**: Always use the `autodidact-` prefix for skill names to ensure autodidact skills are invoked, not project-scoped alternatives. Exception: `direct` (signal value, not a skill).
 
 3. **For `direct` classification**: Just do the task. No orchestration overhead.
 
