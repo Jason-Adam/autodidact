@@ -30,10 +30,29 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
 2. **Show matches** and ask for confirmation. Present each match with its topic, key, value, and current confidence.
 
 3. **Offer two actions**:
-   - **Decay**: Reduce confidence by 0.3 (learning fades but isn't deleted)
-   - **Delete**: Remove entirely from the DB
+   - **Decay**: Reduce confidence by 0.3 (learning fades but isn't deleted):
+     ```bash
+     python3 -c "
+     import sys; sys.path.insert(0, 'REPO_PATH')
+     from src.db import LearningDB
+     db = LearningDB()
+     db.decay(learning_id=LEARNING_ID, amount=0.3)
+     db.close()
+     "
+     ```
+   - **Delete**: Remove entirely from the DB via direct SQL:
+     ```bash
+     python3 -c "
+     import sys; sys.path.insert(0, 'REPO_PATH')
+     from src.db import LearningDB
+     db = LearningDB()
+     db.conn.execute('DELETE FROM learnings WHERE id = ?', (LEARNING_ID,))
+     db.conn.commit()
+     db.close()
+     "
+     ```
 
-4. **Execute** the chosen action and confirm the result.
+4. **Execute** the chosen action and confirm by re-querying the DB to verify the change.
 
 ## Quality Gates
 

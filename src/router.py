@@ -60,7 +60,7 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?marshal\b", "run"),  # legacy alias
     (r"^/?(do\s+)?campaign\b", "campaign"),
     (r"^/?(do\s+)?archon\b", "campaign"),  # legacy alias
-    (r"^/?(do\s+)?learn[-_\s]?status\b", "learn-status"),
+    (r"^/?(do\s+)?learn[-_]?status\b", "learn-status"),
     (r"^/?(do\s+)?learn\b", "learn"),
     (r"^/?(do\s+)?review\b", "polish"),
     (r"^/?(do\s+)?polish\b", "polish"),

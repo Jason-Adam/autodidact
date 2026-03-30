@@ -68,6 +68,12 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-learn-status")
         self.assertEqual(r.tier, 0)
 
+    def test_learn_vs_learn_status_ambiguity(self) -> None:
+        """'learn status codes' should route to learn, not learn-status."""
+        r = classify("/do learn status codes are important")
+        self.assertEqual(r.skill, "autodidact-learn")
+        self.assertEqual(r.tier, 0)
+
     def test_case_insensitive(self) -> None:
         r = classify("INTERVIEW")
         self.assertEqual(r.skill, "autodidact-plan")  # interview consolidated into plan
@@ -103,7 +109,7 @@ class TestTier0PatternMatch(unittest.TestCase):
         r = classify("loop through the array")
         self.assertNotEqual(r.skill, "autodidact-loop")
 
-    def test_forget_command_only(self) -> None:
+    def test_forget_routes_to_forget_skill(self) -> None:
         r = classify("/do forget")
         self.assertEqual(r.skill, "autodidact-forget")
         self.assertEqual(r.tier, 0)
@@ -187,7 +193,7 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 2)
 
-    def test_review_routes_to_review(self) -> None:
+    def test_review_routes_to_polish(self) -> None:
         r = classify("code review the changes")
         self.assertEqual(r.skill, "autodidact-polish")
         self.assertEqual(r.tier, 2)
