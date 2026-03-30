@@ -39,12 +39,13 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
    |---|---|---|
    | Single action, no decomposition needed | `direct` | "I can do this in one tool call" |
    | 2-5 sequential steps, completable in one session | `autodidact-run` | "This needs phases but I won't run out of context" |
-   | Independent units touching different files | `autodidact-fleet` | "These can run in parallel without conflicts" |
+   | Independent units touching different files | `batch` (built-in) | "These can run in parallel without conflicts" |
+   | Dependent units requiring ordered waves | `autodidact-fleet` | "Later units depend on earlier units' output" |
    | Too large for one session, or user mentions multi-day/multi-session | `autodidact-campaign` | "This will exhaust context or span multiple sessions" |
 
-   **Decision priority**: `direct` > `autodidact-fleet` (if parallelizable) > `autodidact-run` (if sequential) > `autodidact-campaign` (if scope exceeds one session). Prefer simpler orchestration when uncertain.
+   **Decision priority**: `direct` > `batch` (if independent parallel) > `autodidact-run` (if sequential) > `autodidact-fleet` (if dependent waves) > `autodidact-campaign` (if scope exceeds one session). Prefer simpler orchestration when uncertain.
 
-   **IMPORTANT**: Always use the `autodidact-` prefix for skill names to ensure autodidact skills are invoked, not project-scoped alternatives. Exception: `direct` (signal value, not a skill).
+   **IMPORTANT**: For autodidact-installed skills, always use the `autodidact-` prefix to ensure autodidact skills are invoked, not project-scoped alternatives. Exceptions: `direct` and `batch` (built-in routes, not `autodidact-*` skills).
 
 3. **For `direct` classification**: Just do the task. No orchestration overhead.
 
@@ -64,8 +65,8 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 ## Quality Gates
 
 - Classification must happen within 1 turn — no back-and-forth to classify
-- If uncertain between two skills, prefer the simpler orchestrator (direct > run > fleet > campaign)
-- Fleet is allowed when plan analysis or complexity assessment shows independent, non-overlapping units — explicit user mention of parallelism is not required
+- If uncertain between two skills, prefer the simpler orchestrator (direct > batch > run > fleet > campaign)
+- Use `batch` (built-in) for independent parallel work; use `autodidact-fleet` only when units have inter-wave dependencies
 
 ## Exit Protocol
 

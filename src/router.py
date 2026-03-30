@@ -223,14 +223,16 @@ def _tier25_plan_analysis(cwd: str) -> RouterResult | None:
             reasoning=f"Plan has 1 phase — direct execution (plan: {plan_files[0].name})",
         )
 
-    # Parallelizable — phases touch disjoint files
+    # Parallelizable — phases touch disjoint files.
+    # Independent work goes to /batch (built-in); /fleet is reserved for
+    # dependency-aware multi-wave execution.
     if _phases_are_independent(phases):
         return RouterResult(
-            skill="fleet",
+            skill="batch",
             confidence=0.85,
             tier=2,
             reasoning=f"Plan has {phase_count} independent phases"
-            f" — fleet (plan: {plan_files[0].name})",
+            f" — batch (plan: {plan_files[0].name})",
         )
 
     # Large plan — likely multi-session
@@ -254,13 +256,21 @@ def _tier25_plan_analysis(cwd: str) -> RouterResult | None:
 # ── Tier 2: Keyword Heuristic ──────────────────────────────────────────
 
 _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
-    "fleet": [
+    "batch": [
         ("parallel", 0.4),
-        ("worktree", 0.5),
+        ("batch", 0.5),
         ("concurrent", 0.3),
         ("concurrently", 0.3),
-        ("wave", 0.3),
         ("simultaneously", 0.3),
+        ("independent", 0.3),
+    ],
+    "fleet": [
+        ("worktree", 0.5),
+        ("wave", 0.4),
+        ("multi-wave", 0.6),
+        ("dependency", 0.3),
+        ("depends on", 0.4),
+        ("sequential waves", 0.5),
     ],
     "run": [
         ("steps", 0.3),
@@ -430,7 +440,8 @@ _AUTODIDACT_SKILLS: frozenset[str] = frozenset(
 def _qualify_skill(name: str) -> str:
     """Add the autodidact- prefix for installed skills.
 
-    Signal values (``direct``, ``classify``) are returned bare.
+    Signal values (``direct``, ``classify``, ``batch``) are returned bare.
+    ``batch`` is a built-in Claude Code command, not an autodidact skill.
     """
     if name in _AUTODIDACT_SKILLS:
         return f"autodidact-{name}"
@@ -440,6 +451,7 @@ def _qualify_skill(name: str) -> str:
 _PLAN_SKILL_TO_LOOP_MODE: dict[str, str] = {
     "direct": "run",
     "run": "run",
+    "batch": "run",  # batch is built-in; loop falls back to run mode
     "fleet": "fleet",
     "campaign": "campaign",
 }
