@@ -16,37 +16,40 @@ Autodidact is a collection of skills, hooks, agents, and a SQLite-backed learnin
 
 ## Architecture
 
-```
-                  ┌─────────────────────────────────────────────┐
-                  │  /do  (cost-ascending router)               │
-                  │  T0: pattern → T1: state → T2: keyword →    │
-                  │  T2.5: plan structure → T3: LLM             │
-                  └──────────────────────┬──────────────────────┘
-                                        │
-     ┌───────┬───────┬──────┬───────┬───┴──────┬────────┬───────┬─────────┐
-     ▼       ▼       ▼        ▼       ▼          ▼        ▼       ▼         ▼
-   /plan   /run  /campaign /fleet /experiment /polish  /learn  /forget  /learn_status
-  Clarify  single  multi   parallel  metric   review   teach   decay    confidence
-  Research session session worktree  driven   + fix    & query  & drop   inventory
-  Design                             optimize
+```mermaid
+graph TD
+    DO["/do — cost-ascending router<br/>T0: pattern → T1: state → T2: keyword<br/>T2.5: plan structure → T3: LLM"]
 
-         ┌──────────────────────────────────────────────────────┐
-         │  /loop  (autonomous driver)                          │
-         │  Wraps /run, /campaign, or /fleet in an unattended   │
-         │  loop with exit detection + circuit breaker          │
-         │  Auto-selects mode from plan structure when omitted  │
-         └──────────────────────────────────────────────────────┘
+    DO --> plan
+    DO --> run
+    DO --> campaign
+    DO --> fleet
+    DO --> experiment
+    DO --> polish
+    DO --> research
+    DO --> learn
+    DO --> forget
+    DO --> learn-status
+    DO --> gc
+    DO --> create-pr
+    DO --> handoff
+    DO --> sync-thoughts
+
+    LOOP["loop — autonomous driver<br/>Wraps run, campaign, or fleet<br/>Exit detection + circuit breaker"]
+    LOOP -.-> run
+    LOOP -.-> campaign
+    LOOP -.-> fleet
 ```
 
 ### Components
 
 | Layer | Count | Description |
 |-------|-------|-------------|
-| **Core library** | 21 modules | `src/` — db, router, confidence, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
-| **Hooks** | 8 | Python scripts on Claude Code lifecycle events (session start, tool use, compaction, stop) |
-| **Skills** | 11 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
+| **Core library** | 22 modules | `src/` — db, router, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
+| **Hooks** | 9 | Python scripts on Claude Code lifecycle events (8 lifecycle hooks + shared constants) |
+| **Skills** | 16 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
 | **Agents** | 12 | Specialized personas: interviewer, fleet-worker, quality-scorer, python-engineer, code-reviewer, code-simplifier, security-reviewer, and 5 research agents |
-| **Commands** | 14 | User-facing slash commands that invoke skills |
+| **Commands** | 1 | Single `/do` entry point — routes to skills via cost-ascending classifier |
 
 ## Prerequisites
 
@@ -77,7 +80,7 @@ uv run pre-commit install     # set up pre-commit hooks (ruff lint, ruff format,
 
 This will:
 1. Symlink skills, agents, and commands into `~/.claude/`
-2. Register 8 hooks in `~/.claude/settings.json` (hooks run via `uv run` so they have access to project dependencies)
+2. Register 9 hooks in `~/.claude/settings.json` (hooks run via `uv run` so they have access to project dependencies)
 3. Initialize the learning database at `~/.claude/autodidact/learning.db`
 
 To uninstall:
@@ -90,26 +93,35 @@ The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` 
 
 ## Usage
 
-| Command | Purpose | Docs |
-|---------|---------|------|
-| `/do` | Universal router — resolves most requests at zero LLM cost | — |
-| `/plan` | Clarify → Research → Design pipeline | [commands.md](docs/commands.md#plan--clarify-research-design) |
-| `/run` | Single-session sequential orchestration | [commands.md](docs/commands.md#run--single-session-orchestration) |
-| `/campaign` | Multi-session persistent orchestration | [commands.md](docs/commands.md#campaign--multi-session-campaigns) |
-| `/fleet` | Parallel worktree execution | [commands.md](docs/commands.md#fleet--parallel-worktree-execution) |
-| `/experiment` | Metric-driven autonomous optimization | [commands.md](docs/commands.md#experiment--metric-driven-optimization) |
-| `/loop` | Autonomous unattended execution (auto-selects mode) | [loop.md](docs/loop.md) |
-| `/learn` | Teach the system facts for future injection | [commands.md](docs/commands.md#learn--teach-the-system) |
-| `/polish` | Parallel code review, security review, and simplification | [commands.md](docs/commands.md#polish--parallel-code-quality) |
-| `/review` | Code review with quality scoring | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
-| `/forget` | Decay or remove learnings from the database | [commands.md](docs/commands.md#forget--decay-learnings) |
-| `/learn_status` | Confidence stats and knowledge inventory | [commands.md](docs/commands.md#learn_status--knowledge-inventory) |
-| `/handoff` | Compact session transfer document | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
-| `/sync-thoughts` | Sync docs to ~/.planning/ for cross-project access | [commands.md](docs/commands.md#review-handoff-sync-thoughts) |
+Everything goes through `/do` -- the cost-ascending router resolves intent and dispatches to the right skill.
+
+```
+/do plan the auth refactor        # routes to plan skill
+/do research how caching works    # routes to research skill
+/do commit these changes          # routes to gc skill
+```
+
+| Skill | Purpose | Docs |
+|-------|---------|------|
+| plan | Clarify -> Research -> Design pipeline | [skill ref](docs/commands.md#plan----clarify-research-design) |
+| run | Single-session sequential orchestration | [skill ref](docs/commands.md#run----single-session-orchestration) |
+| campaign | Multi-session persistent orchestration | [skill ref](docs/commands.md#campaign----multi-session-campaigns) |
+| fleet | Parallel worktree execution (multi-wave, dependency-aware) | [skill ref](docs/commands.md#fleet----parallel-worktree-execution) |
+| experiment | Metric-driven autonomous optimization | [skill ref](docs/commands.md#experiment----metric-driven-optimization) |
+| loop | Autonomous unattended execution (auto-selects mode) | [loop.md](docs/loop.md) |
+| learn | Teach the system facts for future injection | [skill ref](docs/commands.md#learn----teach-the-system) |
+| polish | Parallel code review, security review, and simplification | [skill ref](docs/commands.md#polish----parallel-code-quality) |
+| forget | Decay or remove learnings from the database | [skill ref](docs/commands.md#forget----decay-learnings) |
+| learn-status | Confidence stats and knowledge inventory | [skill ref](docs/commands.md#learn-status----knowledge-inventory) |
+| gc | Autonomous git commits -- auto-branches, atomic commits | [skill ref](docs/commands.md#gc----autonomous-git-commits) |
+| create-pr | Create pull requests with thorough descriptions | [skill ref](docs/commands.md#create-pr----create-pull-requests) |
+| research | Parallel codebase research with persisted findings | [skill ref](docs/commands.md#research----standalone-codebase-research) |
+| handoff | Compact session transfer document | [skill ref](docs/commands.md#handoff----session-transfer) |
+| sync-thoughts | Sync docs to ~/.planning/ for cross-project access | [skill ref](docs/commands.md#sync-thoughts----cross-project-sync) |
 
 ## Deep dives
 
-- [Command reference](docs/commands.md) — detailed usage and examples for every command
+- [Skill reference](docs/commands.md) — detailed usage and examples for every skill
 - [Loop and autonomous execution](docs/loop.md) — exit detection, circuit breaker, auto-select mode
 - [Learning database](docs/learning-db.md) — knowledge lifecycle, confidence math, FTS5 queries
 - [Planning and persistence](docs/planning.md) — `.planning/` directory structure, document syncing
@@ -120,7 +132,7 @@ The learning database is preserved on uninstall. Delete `~/.claude/autodidact/` 
 uv run python3 -m pytest tests/ -v
 ```
 
-392 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
+460 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
 
 ## Design principles
 

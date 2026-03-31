@@ -19,11 +19,11 @@ All planning state lives in the `.planning/` directory at the project root (or w
 
 ## Syncing to centralized storage
 
-Use `/sync-thoughts` to copy research and plan documents to `~/.planning/` for cross-project access:
+Use `/do sync-thoughts` to copy research and plan documents to `~/.planning/` for cross-project access:
 
 ```bash
-/sync-thoughts              # sync all docs from current project
-/sync-thoughts <file>       # sync a specific file
+/do sync-thoughts              # sync all docs from current project
+/do sync-thoughts <file>       # sync a specific file
 ```
 
 Documents are copied (not moved) — local `.planning/` files are always preserved.
