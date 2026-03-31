@@ -29,11 +29,11 @@ graph TD
     DO --> research
     DO --> learn
     DO --> forget
-    DO --> learn-status
+    DO --> learn_status["learn-status"]
     DO --> gc
-    DO --> create-pr
+    DO --> create_pr["create-pr"]
     DO --> handoff
-    DO --> sync-thoughts
+    DO --> sync_thoughts["sync-thoughts"]
 
     run --> LOOP["loop — autonomous driver<br/>Wraps run, campaign, or fleet<br/>Exit detection + circuit breaker"]
     campaign --> LOOP

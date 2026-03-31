@@ -1,6 +1,6 @@
 # Skill Reference
 
-All skills are invoked through the `/do` router. You can also invoke them directly as `/skill-name` if installed as slash commands, but `/do` is the canonical entry point.
+All skills are invoked through the `/do` router. This repo installs only the `/do` command and does not provide direct `/skill-name` slash commands by default.
 
 ## /do -- universal entry point
 
