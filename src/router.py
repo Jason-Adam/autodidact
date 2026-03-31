@@ -509,7 +509,7 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
 
     # Tier 3: Signal for LLM classification (no prefix needed)
     # Record the gap so we can improve deterministic tiers over time
-    _record_routing_gap(prompt, tiers_attempted=[0, 1, 2])
+    _record_routing_gap(prompt, tiers_attempted=[0, 1, 2, 2.5])
 
     return _assign_model(
         RouterResult(
@@ -521,7 +521,7 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
     )
 
 
-def _record_routing_gap(prompt: str, tiers_attempted: list[int]) -> None:
+def _record_routing_gap(prompt: str, tiers_attempted: list[int | float]) -> None:
     """Record a routing gap when all deterministic tiers miss."""
     try:
         from src.db import LearningDB

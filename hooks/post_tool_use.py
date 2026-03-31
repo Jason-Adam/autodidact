@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: error learner, success tracker, per-edit quality checks.
+"""PostToolUse hook: per-edit quality checks and observation capture.
 
-Fires after every tool use. Non-blocking (exit 0).
+Fires after successful tool use. Non-blocking (exit 0).
+Error learning is handled by post_tool_use_failure.py (PostToolUseFailure event).
 
 Responsibilities:
-1. Capture error signatures from failed tool uses -> record in learning DB
-2. Check if output matches a known error -> inject fix suggestion
-3. Run language-aware quality checks after file edits (ruff, eslint)
+1. Run language-aware quality checks after file edits (ruff, mypy, eslint)
+2. Capture observations from bash command outputs
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -25,7 +24,7 @@ _REPO = _HOOKS.parent
 sys.path.insert(0, str(_HOOKS))
 sys.path.insert(0, str(_REPO))
 
-from constants import TOOL_BASH, TOOL_EDIT, TOOL_WRITE  # noqa: E402
+from constants import TOOL_BASH, TOOL_EDIT, TOOL_WRITE, normalize_error  # noqa: E402
 
 from src.confidence import (
     OBSERVATION_INITIAL_CONFIDENCE,
@@ -128,28 +127,6 @@ def _has_tool(name: str) -> bool:
     cache[name] = result
     _set_tool_cache(cache)
     return result
-
-
-def _normalize_error(error_text: str) -> str:
-    """Create a normalized signature from an error message."""
-    # Strip linter file:line:col: prefix BEFORE path normalization
-    # Handles ruff ("file.py:42:5: CODE") and mypy ("file.py:174: error:")
-    normalized = re.sub(
-        r"^(\w+:\s)?[\w./\\-]+:\d+(?::\d+)?:\s*",
-        r"\1",
-        error_text,
-        flags=re.MULTILINE,
-    )
-    # Remove absolute file paths, line numbers, and timestamps
-    normalized = re.sub(r"/[\w/.-]+", "<PATH>", normalized)
-    normalized = re.sub(r"line \d+", "line N", normalized, flags=re.IGNORECASE)
-    normalized = re.sub(r"\d{4}-\d{2}-\d{2}", "<DATE>", normalized)
-    # Take first meaningful line
-    for line in normalized.splitlines():
-        line = line.strip()
-        if line and not line.startswith(("Traceback", "File ", "  ")):
-            return line[:200]
-    return normalized[:200]
 
 
 def _run_quality_check(file_path: str) -> list[str]:
@@ -279,7 +256,7 @@ def main() -> None:
                     messages.append("QUALITY ISSUES:\n" + "\n".join(f"  {i}" for i in issues))
                     # Record new patterns in DB
                     for issue in issues:
-                        issue_sig = _normalize_error(issue)
+                        issue_sig = normalize_error(issue)
                         sig_hash = hashlib.md5(issue_sig.encode()).hexdigest()[:12]
                         db.record(
                             topic="quality",

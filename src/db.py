@@ -445,7 +445,7 @@ class LearningDB:
     def record_routing_gap(
         self,
         prompt: str,
-        tiers: list[int],
+        tiers: list[int | float],
         classification: str = "",
     ) -> int:
         cursor = self.conn.execute(

@@ -21,6 +21,8 @@ sys.path.insert(0, str(_HOOKS))
 sys.path.insert(0, str(_REPO))
 
 
+from constants import normalize_error  # noqa: E402
+
 from src.confidence import initial_confidence_for_outcome  # noqa: E402
 from src.db import LearningDB  # noqa: E402
 from src.git_utils import resolve_main_repo  # noqa: E402
@@ -33,28 +35,9 @@ _TEE_MAX_FILES = 20
 _TEE_MIN_BYTES = 500
 
 
-def _normalize_error(error_text: str) -> str:
-    """Create a normalized signature from an error message."""
-    # Strip linter file:line:col: prefix before path normalization
-    normalized = re.sub(
-        r"^(\w+:\s)?[\w./\\-]+:\d+(?::\d+)?:\s*",
-        r"\1",
-        error_text,
-        flags=re.MULTILINE,
-    )
-    normalized = re.sub(r"/[\w/.-]+", "<PATH>", normalized)
-    normalized = re.sub(r"line \d+", "line N", normalized, flags=re.IGNORECASE)
-    normalized = re.sub(r"\d{4}-\d{2}-\d{2}", "<DATE>", normalized)
-    for line in normalized.splitlines():
-        line = line.strip()
-        if line and not line.startswith(("Traceback", "File ", "  ")):
-            return line[:200]
-    return normalized[:200]
-
-
 def _tee_output(tool_name: str, error_text: str, cwd: str) -> str | None:
     """Save full error output to disk; return a hint string or None."""
-    if len(error_text) < _TEE_MIN_BYTES:
+    if not cwd or len(error_text) < _TEE_MIN_BYTES:
         return None
 
     tee_dir = Path(cwd) / _TEE_DIR_NAME
@@ -130,7 +113,7 @@ def main() -> None:
         if tee_hint:
             messages.append(tee_hint)
 
-        signature = _normalize_error(error_text)
+        signature = normalize_error(error_text)
         sig_hash = hashlib.md5(signature.encode()).hexdigest()[:12]
 
         # Check if a previous fix suggestion failed to resolve the error
