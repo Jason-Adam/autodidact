@@ -508,6 +508,9 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
             return _assign_model(result)
 
     # Tier 3: Signal for LLM classification (no prefix needed)
+    # Record the gap so we can improve deterministic tiers over time
+    _record_routing_gap(prompt, tiers_attempted=[0, 1, 2, 2.5])
+
     return _assign_model(
         RouterResult(
             skill="classify",
@@ -516,3 +519,17 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
             reasoning="No deterministic match; LLM classification needed",
         )
     )
+
+
+def _record_routing_gap(prompt: str, tiers_attempted: list[int | float]) -> None:
+    """Record a routing gap when all deterministic tiers miss."""
+    try:
+        from src.db import LearningDB
+
+        with LearningDB() as db:
+            db.record_routing_gap(
+                prompt=prompt,
+                tiers=tiers_attempted,
+            )
+    except Exception:
+        pass  # Non-blocking; routing must not fail due to DB issues

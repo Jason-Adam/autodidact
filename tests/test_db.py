@@ -219,6 +219,23 @@ class TestLearningDB(unittest.TestCase):
         self.assertEqual(len(gaps), 1)
         self.assertEqual(gaps[0]["prompt"], "build the thing")
 
+    def test_prune_routing_gaps_removes_old(self) -> None:
+        gid = self.db.record_routing_gap("old prompt", [0, 1], "plan")
+        self.db.conn.execute(
+            "UPDATE routing_gaps SET timestamp = datetime('now', '-100 days') WHERE id = ?",
+            (gid,),
+        )
+        self.db.conn.commit()
+        deleted = self.db.prune_routing_gaps(max_age_days=90)
+        self.assertEqual(deleted, 1)
+        self.assertEqual(len(self.db.get_routing_gaps()), 0)
+
+    def test_prune_routing_gaps_keeps_recent(self) -> None:
+        self.db.record_routing_gap("recent prompt", [0], "keyword")
+        deleted = self.db.prune_routing_gaps(max_age_days=90)
+        self.assertEqual(deleted, 0)
+        self.assertEqual(len(self.db.get_routing_gaps()), 1)
+
     # ── Stats ───────────────────────────────────────────────────────
 
     def test_stats(self) -> None:

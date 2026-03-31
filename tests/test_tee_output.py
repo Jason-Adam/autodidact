@@ -1,4 +1,4 @@
-"""Tests for _tee_output in hooks/post_tool_use.py."""
+"""Tests for _tee_output in hooks/post_tool_use_failure.py."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-# Ensure the repo root is on the path so hooks.post_tool_use is importable
+# Ensure the repo root is on the path so hooks.post_tool_use_failure is importable
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from hooks.post_tool_use import _TEE_MAX_FILES, _TEE_MIN_BYTES, _tee_output  # noqa: E402
+from hooks.post_tool_use_failure import _TEE_MAX_FILES, _TEE_MIN_BYTES, _tee_output  # noqa: E402
 
 
 class TestTeeOutputSmallOutput(unittest.TestCase):
@@ -47,7 +47,7 @@ class TestTeeOutputWritesFile(unittest.TestCase):
             assert result is not None
             self.assertIn(".planning/tee/", result)
             self.assertIn("Bash", result)
-            self.assertTrue(result.startswith("[full output: .planning/tee/"))
+            self.assertTrue(result.startswith("[full error output: .planning/tee/"))
             self.assertTrue(result.endswith("]"))
 
             # Verify file was actually written

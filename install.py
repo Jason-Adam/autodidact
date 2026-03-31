@@ -84,6 +84,7 @@ HOOK_EVENTS = {
     "UserPromptSubmit": ["user_prompt_submit.py"],
     "PreToolUse": ["pre_tool_use.py"],
     "PostToolUse": ["post_tool_use.py"],
+    "PostToolUseFailure": ["post_tool_use_failure.py"],
     "PreCompact": ["pre_compact.py"],
     "Stop": ["stop.py"],
     "SubagentStop": ["subagent_stop.py"],

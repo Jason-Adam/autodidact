@@ -121,6 +121,7 @@ class LearningDB:
             )
             self.conn.execute("PRAGMA user_version = 3")
             self.conn.commit()
+            version = 3  # noqa: F841
 
     def close(self) -> None:
         self.conn.close()
@@ -445,7 +446,7 @@ class LearningDB:
     def record_routing_gap(
         self,
         prompt: str,
-        tiers: list[int],
+        tiers: list[int | float],
         classification: str = "",
     ) -> int:
         cursor = self.conn.execute(
@@ -464,6 +465,19 @@ class LearningDB:
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def prune_routing_gaps(self, *, max_age_days: int = 90) -> int:
+        """Delete routing gaps older than max_age_days. Returns count deleted."""
+        cutoff = datetime.now(UTC)
+        cursor = self.conn.execute(
+            """
+            DELETE FROM routing_gaps
+            WHERE julianday(?) - julianday(timestamp) > ?
+            """,
+            (cutoff.isoformat(), max_age_days),
+        )
+        self.conn.commit()
+        return cursor.rowcount
 
     # ── Stats ───────────────────────────────────────────────────────────
 
