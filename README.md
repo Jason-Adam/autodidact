@@ -35,10 +35,9 @@ graph TD
     DO --> handoff
     DO --> sync-thoughts
 
-    LOOP["loop — autonomous driver<br/>Wraps run, campaign, or fleet<br/>Exit detection + circuit breaker"]
-    LOOP -.-> run
-    LOOP -.-> campaign
-    LOOP -.-> fleet
+    run --> LOOP["loop — autonomous driver<br/>Wraps run, campaign, or fleet<br/>Exit detection + circuit breaker"]
+    campaign --> LOOP
+    fleet --> LOOP
 ```
 
 ### Components
