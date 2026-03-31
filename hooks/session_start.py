@@ -57,147 +57,146 @@ def main() -> None:
     project_path = resolve_main_repo(cwd) if cwd else ""
 
     try:
-        db = LearningDB()
+        with LearningDB() as db:
+            # Daily prune: check if we've pruned today
+            prune_marker = db.db_path.parent / ".last_prune"
+            today = datetime.now(UTC).strftime("%Y-%m-%d")
+            should_prune = True
+            if prune_marker.exists():
+                should_prune = prune_marker.read_text().strip() != today
+            if should_prune:
+                deleted = db.prune()
+                gaps_deleted = db.prune_routing_gaps()
+                prune_marker.write_text(today)
+                if deleted > 0 or gaps_deleted > 0:
+                    parts = []
+                    if deleted > 0:
+                        parts.append(f"{deleted} stale learning(s)")
+                    if gaps_deleted > 0:
+                        parts.append(f"{gaps_deleted} old routing gap(s)")
+                    messages.append(f"Pruned {', '.join(parts)}.")
 
-        # Daily prune: check if we've pruned today
-        prune_marker = db.db_path.parent / ".last_prune"
-        today = datetime.now(UTC).strftime("%Y-%m-%d")
-        should_prune = True
-        if prune_marker.exists():
-            should_prune = prune_marker.read_text().strip() != today
-        if should_prune:
-            deleted = db.prune()
-            gaps_deleted = db.prune_routing_gaps()
-            prune_marker.write_text(today)
-            if deleted > 0 or gaps_deleted > 0:
-                parts = []
-                if deleted > 0:
-                    parts.append(f"{deleted} stale learning(s)")
-                if gaps_deleted > 0:
-                    parts.append(f"{gaps_deleted} old routing gap(s)")
-                messages.append(f"Pruned {', '.join(parts)}.")
+            # Auto-graduate eligible learnings to memory system (daily, alongside pruning)
+            # Wrapped in its own try/except so a filesystem error can't disable
+            # the rest of the hook (injection, campaign detection, etc.)
+            if should_prune:
+                try:
+                    candidates = db.get_graduation_candidates()
+                    if candidates and project_path:
+                        results = graduate_to_memory(candidates, project_path)
+                        graduated_keys = []
+                        for result in results:
+                            if db.graduate(result["id"], result["memory_path"]):
+                                graduated_keys.append(result["key"])
+                        if graduated_keys:
+                            max_listed = 5
+                            listed = graduated_keys[:max_listed]
+                            remaining = len(graduated_keys) - len(listed)
+                            keys_str = ", ".join(listed)
+                            msg = (
+                                f"Graduated {len(graduated_keys)} learning(s) to memory: {keys_str}"
+                            )
+                            if remaining > 0:
+                                msg += f" (and {remaining} more)"
+                            messages.append(msg)
+                except Exception:
+                    pass  # Graceful degradation -- don't block other hook behavior
 
-        # Auto-graduate eligible learnings to memory system (daily, alongside pruning)
-        # Wrapped in its own try/except so a filesystem error can't disable
-        # the rest of the hook (injection, campaign detection, etc.)
-        if should_prune:
-            try:
-                candidates = db.get_graduation_candidates()
-                if candidates and project_path:
-                    results = graduate_to_memory(candidates, project_path)
-                    graduated_keys = []
-                    for result in results:
-                        if db.graduate(result["id"], result["memory_path"]):
-                            graduated_keys.append(result["key"])
-                    if graduated_keys:
-                        max_listed = 5
-                        listed = graduated_keys[:max_listed]
-                        remaining = len(graduated_keys) - len(listed)
-                        keys_str = ", ".join(listed)
-                        msg = f"Graduated {len(graduated_keys)} learning(s) to memory: {keys_str}"
-                        if remaining > 0:
-                            msg += f" (and {remaining} more)"
-                        messages.append(msg)
-            except Exception:
-                pass  # Graceful degradation — don't block other hook behavior
-
-        # RTK token savings
-        if is_rtk_installed():
-            rtk_summary = get_rtk_savings_summary(project_path)
-            if rtk_summary:
-                total_cmds = rtk_summary.get("total_commands", 0)
-                saved = rtk_summary.get("tokens_saved", 0)
-                pct = rtk_summary.get("savings_percent", 0)
+            # RTK token savings
+            if is_rtk_installed():
+                rtk_summary = get_rtk_savings_summary(project_path)
+                if rtk_summary:
+                    total_cmds = rtk_summary.get("total_commands", 0)
+                    saved = rtk_summary.get("tokens_saved", 0)
+                    pct = rtk_summary.get("savings_percent", 0)
+                    messages.append(
+                        f"RTK: {total_cmds} commands, {saved:,} tokens saved ({pct}%), last 7 days"
+                    )
+            else:
                 messages.append(
-                    f"RTK: {total_cmds} commands, {saved:,} tokens saved ({pct}%), last 7 days"
+                    "RTK saves 60-90% tokens on CLI output. "
+                    "Install: brew install patrickszmukowiak/tap/rtk"
                 )
-        else:
-            messages.append(
-                "RTK saves 60-90% tokens on CLI output. "
-                "Install: brew install patrickszmukowiak/tap/rtk"
+
+            # RTK discover -> learning DB (weekly)
+            rtk_marker = Path(db.db_path).parent / ".last_rtk_discover"
+            if _should_run_weekly(rtk_marker, today):
+                recorded = feed_discover_to_db(project_path, db)
+                if recorded > 0:
+                    messages.append(
+                        f"RTK discover: {recorded} optimization tips recorded to learning DB"
+                    )
+                _stamp_weekly(rtk_marker, today)
+
+            # Session mining -> learning DB (weekly)
+            mine_marker = Path(db.db_path).parent / ".last_session_mine"
+            if _should_run_weekly(mine_marker, today) and project_path:
+                try:
+                    mine_result = mine_and_record(project_path, db)
+                    if mine_result.get("learnings_recorded", 0) > 0:
+                        messages.append(
+                            f"Session mining: {mine_result['learnings_recorded']} error "
+                            f"patterns from {mine_result['sessions_scanned']} sessions"
+                        )
+                    _stamp_weekly(mine_marker, today)
+                except Exception:
+                    pass  # Graceful degradation -- don't stamp marker on failure
+
+            # Inject progressive learnings for current project
+            # Derive topic hint from project directory name for FTS relevance
+            topic_hint = Path(project_path).name if project_path else ""
+            learnings = db.get_progressive_learnings(
+                token_budget=2000,
+                project_path=project_path,
+                topic_hint=topic_hint,
+                min_confidence=INJECTION_MIN_CONFIDENCE,
             )
 
-        # RTK discover -> learning DB (weekly)
-        rtk_marker = Path(db.db_path).parent / ".last_rtk_discover"
-        if _should_run_weekly(rtk_marker, today):
-            recorded = feed_discover_to_db(project_path, db)
-            if recorded > 0:
-                messages.append(
-                    f"RTK discover: {recorded} optimization tips recorded to learning DB"
-                )
-            _stamp_weekly(rtk_marker, today)
+            core = learnings.get("core", [])
+            relevant = learnings.get("relevant", [])
 
-        # Session mining -> learning DB (weekly)
-        mine_marker = Path(db.db_path).parent / ".last_session_mine"
-        if _should_run_weekly(mine_marker, today) and project_path:
-            try:
-                mine_result = mine_and_record(project_path, db)
-                if mine_result.get("learnings_recorded", 0) > 0:
-                    messages.append(
-                        f"Session mining: {mine_result['learnings_recorded']} error patterns "
-                        f"from {mine_result['sessions_scanned']} sessions"
-                    )
-                _stamp_weekly(mine_marker, today)
-            except Exception:
-                pass  # Graceful degradation — don't stamp marker on failure
+            if core or relevant:
+                lines = []
+                if core:
+                    lines.append("AUTODIDACT LEARNINGS (high confidence):")
+                    for entry in core:
+                        db.increment_access(entry["id"], session_id=session_id)
+                        lines.append(
+                            f"  [{entry['topic']}/{entry['key']}] "
+                            f"{entry['value']} (conf: {entry['confidence']:.2f})"
+                        )
+                if relevant:
+                    lines.append("\nPOSSIBLY RELEVANT:")
+                    for entry in relevant:
+                        db.increment_access(entry["id"], session_id=session_id)
+                        lines.append(
+                            f"  [{entry['topic']}/{entry['key']}] "
+                            f"{entry['value']} (conf: {entry['confidence']:.2f})"
+                        )
+                messages.append("\n".join(lines))
 
-        # Inject progressive learnings for current project
-        # Derive topic hint from project directory name for FTS relevance
-        topic_hint = Path(project_path).name if project_path else ""
-        learnings = db.get_progressive_learnings(
-            token_budget=2000,
-            project_path=project_path,
-            topic_hint=topic_hint,
-            min_confidence=INJECTION_MIN_CONFIDENCE,
-        )
+            # Check for active campaigns
+            planning_dir = Path(cwd) / ".planning" / "campaigns" if cwd else None
+            if planning_dir and planning_dir.exists():
+                for campaign_file in planning_dir.glob("*.json"):
+                    try:
+                        campaign = json.loads(campaign_file.read_text())
+                        if campaign.get("status") == "in_progress":
+                            name = campaign.get("name", campaign_file.stem)
+                            messages.append(f"ACTIVE CAMPAIGN: {name} -- use /campaign to resume.")
+                    except (json.JSONDecodeError, KeyError):
+                        pass
 
-        core = learnings.get("core", [])
-        relevant = learnings.get("relevant", [])
-
-        if core or relevant:
-            lines = []
-            if core:
-                lines.append("AUTODIDACT LEARNINGS (high confidence):")
-                for entry in core:
-                    db.increment_access(entry["id"], session_id=session_id)
-                    lines.append(
-                        f"  [{entry['topic']}/{entry['key']}] "
-                        f"{entry['value']} (conf: {entry['confidence']:.2f})"
-                    )
-            if relevant:
-                lines.append("\nPOSSIBLY RELEVANT:")
-                for entry in relevant:
-                    db.increment_access(entry["id"], session_id=session_id)
-                    lines.append(
-                        f"  [{entry['topic']}/{entry['key']}] "
-                        f"{entry['value']} (conf: {entry['confidence']:.2f})"
-                    )
-            messages.append("\n".join(lines))
-
-        # Check for active campaigns
-        planning_dir = Path(cwd) / ".planning" / "campaigns" if cwd else None
-        if planning_dir and planning_dir.exists():
-            for campaign_file in planning_dir.glob("*.json"):
+            # Restore compact state if present
+            compact_state_path = Path(cwd) / ".planning" / "compact_state.json" if cwd else None
+            if compact_state_path and compact_state_path.exists():
                 try:
-                    campaign = json.loads(campaign_file.read_text())
-                    if campaign.get("status") == "in_progress":
-                        name = campaign.get("name", campaign_file.stem)
-                        messages.append(f"ACTIVE CAMPAIGN: {name} — use /campaign to resume.")
+                    state = json.loads(compact_state_path.read_text())
+                    if state:
+                        messages.append("Restored session state from previous compaction.")
+                        compact_state_path.unlink()
                 except (json.JSONDecodeError, KeyError):
                     pass
-
-        # Restore compact state if present
-        compact_state_path = Path(cwd) / ".planning" / "compact_state.json" if cwd else None
-        if compact_state_path and compact_state_path.exists():
-            try:
-                state = json.loads(compact_state_path.read_text())
-                if state:
-                    messages.append("Restored session state from previous compaction.")
-                    compact_state_path.unlink()
-            except (json.JSONDecodeError, KeyError):
-                pass
-
-        db.close()
     except Exception:
         pass  # Graceful degradation
 

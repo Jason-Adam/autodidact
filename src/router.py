@@ -526,11 +526,10 @@ def _record_routing_gap(prompt: str, tiers_attempted: list[int | float]) -> None
     try:
         from src.db import LearningDB
 
-        db = LearningDB()
-        db.record_routing_gap(
-            prompt=prompt,
-            tiers=tiers_attempted,
-        )
-        db.close()
+        with LearningDB() as db:
+            db.record_routing_gap(
+                prompt=prompt,
+                tiers=tiers_attempted,
+            )
     except Exception:
         pass  # Non-blocking; routing must not fail due to DB issues

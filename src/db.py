@@ -121,6 +121,7 @@ class LearningDB:
             )
             self.conn.execute("PRAGMA user_version = 3")
             self.conn.commit()
+            version = 3  # noqa: F841
 
     def close(self) -> None:
         self.conn.close()

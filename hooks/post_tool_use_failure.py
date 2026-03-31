@@ -42,9 +42,9 @@ def _tee_output(tool_name: str, error_text: str, cwd: str) -> str | None:
 
     tee_dir = Path(cwd) / _TEE_DIR_NAME
     with contextlib.suppress(OSError):
-        if tee_dir.exists() and tee_dir.is_symlink():
-            return None
         tee_dir.mkdir(parents=True, exist_ok=True)
+        if tee_dir.resolve() != (Path(cwd) / _TEE_DIR_NAME).resolve():
+            return None  # symlink was followed
 
         safe_name = re.sub(r"[^\w\-]", "_", tool_name)
         epoch = int(time.time())
@@ -54,7 +54,8 @@ def _tee_output(tool_name: str, error_text: str, cwd: str) -> str | None:
         if len(content.encode()) > _TEE_MAX_BYTES:
             content = error_text.encode()[:_TEE_MAX_BYTES].decode("utf-8", errors="replace")
         tee_path.write_text(content)
-        tee_path.chmod(0o600)
+        with contextlib.suppress(OSError):
+            tee_path.chmod(0o600)
 
         existing = sorted(tee_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
         while len(existing) > _TEE_MAX_FILES:
@@ -107,51 +108,49 @@ def main() -> None:
         sys.exit(0)
 
     try:
-        db = LearningDB()
+        with LearningDB() as db:
+            tee_hint = _tee_output(tool_name, error_text, cwd)
+            if tee_hint:
+                messages.append(tee_hint)
 
-        tee_hint = _tee_output(tool_name, error_text, cwd)
-        if tee_hint:
-            messages.append(tee_hint)
+            signature = normalize_error(error_text)
+            sig_hash = hashlib.md5(signature.encode(), usedforsecurity=False).hexdigest()[:12]
 
-        signature = normalize_error(error_text)
-        sig_hash = hashlib.md5(signature.encode(), usedforsecurity=False).hexdigest()[:12]
+            # Check if a previous fix suggestion failed to resolve the error
+            pending_fix = _load_pending_fix()
+            if (
+                pending_fix
+                and pending_fix.get("signature") == signature
+                and pending_fix.get("session_id", "") == session_id
+            ):
+                db.decay(pending_fix["learning_id"])
+                _clear_pending_fix()
 
-        # Check if a previous fix suggestion failed to resolve the error
-        pending_fix = _load_pending_fix()
-        if (
-            pending_fix
-            and pending_fix.get("signature") == signature
-            and pending_fix.get("session_id", "") == session_id
-        ):
-            db.decay(pending_fix["learning_id"])
-            _clear_pending_fix()
-
-        # Check if we know this error
-        known = db.get_by_error_signature(signature)
-        if known:
-            db.boost(known["id"])
-            msg = (
-                f"KNOWN ERROR [{known['key']}]: {known['value']} (conf: {known['confidence']:.2f})"
-            )
-            messages.append(msg)
-            _save_pending_fix(signature, known["id"], session_id)
-        else:
-            db.record(
-                topic="error",
-                key=f"err_{sig_hash}",
-                value=f"Error in {tool_name}: {signature}",
-                category="error_fix",
-                confidence=initial_confidence_for_outcome("failure"),
-                source="error_learner",
-                project_path=project_path,
-                session_id=session_id,
-                error_signature=signature,
-                error_type=tool_name,
-                outcome="failure",
-            )
-            _clear_pending_fix()
-
-        db.close()
+            # Check if we know this error
+            known = db.get_by_error_signature(signature)
+            if known:
+                db.boost(known["id"])
+                msg = (
+                    f"KNOWN ERROR [{known['key']}]: {known['value']} "
+                    f"(conf: {known['confidence']:.2f})"
+                )
+                messages.append(msg)
+                _save_pending_fix(signature, known["id"], session_id)
+            else:
+                db.record(
+                    topic="error",
+                    key=f"err_{sig_hash}",
+                    value=f"Error in {tool_name}: {signature}",
+                    category="error_fix",
+                    confidence=initial_confidence_for_outcome("failure"),
+                    source="error_learner",
+                    project_path=project_path,
+                    session_id=session_id,
+                    error_signature=signature,
+                    error_type=tool_name,
+                    outcome="failure",
+                )
+                _clear_pending_fix()
     except Exception:
         pass  # Graceful degradation
 

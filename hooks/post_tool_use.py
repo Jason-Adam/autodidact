@@ -92,7 +92,7 @@ def _extract_observation(
     first_word = parts[0] if parts else "unknown"
     tags = f"bash {first_word}"
 
-    # Value: original command + condensed result
+    # Value: unwrapped/normalized command + condensed result
     value = f"Command: {cmd_stripped[:100]}\nResult: {condensed[:200]}"
 
     return {"key": key, "value": value, "tags": tags}
@@ -242,57 +242,54 @@ def main() -> None:
     messages: list[str] = []
 
     try:
-        db = LearningDB()
+        with LearningDB() as db:
+            # Error learning is handled by post_tool_use_failure.py
+            # (PostToolUse only fires on success; PostToolUseFailure handles errors)
 
-        # Error learning is handled by post_tool_use_failure.py
-        # (PostToolUse only fires on success; PostToolUseFailure handles errors)
+            # Per-edit quality checks (PostToolUse only fires on success)
+            if tool_name in (TOOL_EDIT, TOOL_WRITE):
+                file_path = tool_input.get("file_path", "")
+                if file_path:
+                    issues = _run_quality_check(file_path)
+                    if issues:
+                        messages.append("QUALITY ISSUES:\n" + "\n".join(f"  {i}" for i in issues))
+                        # Record new patterns in DB
+                        for issue in issues:
+                            issue_sig = normalize_error(issue)
+                            sig_hash = hashlib.md5(
+                                issue_sig.encode(), usedforsecurity=False
+                            ).hexdigest()[:12]
+                            db.record(
+                                topic="quality",
+                                key=f"qual_{sig_hash}",
+                                value=issue_sig,
+                                category="code_pattern",
+                                confidence=0.3,
+                                source="quality_check",
+                                project_path=project_path,
+                                session_id=session_id,
+                            )
 
-        # Per-edit quality checks (PostToolUse only fires on success)
-        if tool_name in (TOOL_EDIT, TOOL_WRITE):
-            file_path = tool_input.get("file_path", "")
-            if file_path:
-                issues = _run_quality_check(file_path)
-                if issues:
-                    messages.append("QUALITY ISSUES:\n" + "\n".join(f"  {i}" for i in issues))
-                    # Record new patterns in DB
-                    for issue in issues:
-                        issue_sig = normalize_error(issue)
-                        sig_hash = hashlib.md5(
-                            issue_sig.encode(), usedforsecurity=False
-                        ).hexdigest()[:12]
-                        db.record(
-                            topic="quality",
-                            key=f"qual_{sig_hash}",
-                            value=issue_sig,
-                            category="code_pattern",
-                            confidence=0.3,
-                            source="quality_check",
-                            project_path=project_path,
-                            session_id=session_id,
-                        )
-
-        # Observation capture (broad, confidence-gated)
-        if (
-            tool_name in _OBSERVATION_TOOLS
-            and tool_output
-            and len(tool_output) >= _OBSERVATION_MIN_OUTPUT_LEN
-        ):
-            obs = _extract_observation(tool_name, tool_input, tool_output)
-            if obs:
-                db.record(
-                    topic="observation",
-                    key=obs["key"],
-                    value=obs["value"],
-                    category="observation",
-                    confidence=OBSERVATION_INITIAL_CONFIDENCE,
-                    tags=obs["tags"],
-                    source="observation",
-                    project_path=project_path,
-                    session_id=session_id,
-                    outcome="interesting",
-                )
-
-        db.close()
+            # Observation capture (broad, confidence-gated)
+            if (
+                tool_name in _OBSERVATION_TOOLS
+                and tool_output
+                and len(tool_output) >= _OBSERVATION_MIN_OUTPUT_LEN
+            ):
+                obs = _extract_observation(tool_name, tool_input, tool_output)
+                if obs:
+                    db.record(
+                        topic="observation",
+                        key=obs["key"],
+                        value=obs["value"],
+                        category="observation",
+                        confidence=OBSERVATION_INITIAL_CONFIDENCE,
+                        tags=obs["tags"],
+                        source="observation",
+                        project_path=project_path,
+                        session_id=session_id,
+                        outcome="interesting",
+                    )
     except Exception:
         pass  # Graceful degradation
 
