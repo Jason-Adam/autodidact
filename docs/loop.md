@@ -5,10 +5,10 @@
 ## How it works
 
 ```
-/plan (interactive, you're present)
+/do plan (interactive, you're present)
   |
   v  plan approved
-/loop run|campaign|fleet (autonomous, you walk away)
+/do loop run|campaign|fleet (autonomous, you walk away)
   |
   |-- invoke claude CLI --> hooks fire automatically inside
   |-- analyze response --> question detection, status block parsing
@@ -23,13 +23,13 @@ The loop **wraps** existing skills — it doesn't reimplement them. Each iterati
 ## Usage
 
 ```
-/loop run          # loop against the latest plan
-/loop campaign     # loop continuing the active campaign
-/loop fleet        # loop with parallel worktree execution
-/loop              # auto-select mode based on plan structure
-/loop --max 20     # limit iterations
-/loop status       # check loop progress
-/loop stop         # graceful stop after current iteration
+/do loop run          # loop against the latest plan
+/do loop campaign     # loop continuing the active campaign
+/do loop fleet        # loop with parallel worktree execution
+/do loop              # auto-select mode based on plan structure
+/do loop --max 20     # limit iterations
+/do loop status       # check loop progress
+/do loop stop         # graceful stop after current iteration
 ```
 
 From the terminal directly (foreground mode):
