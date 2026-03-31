@@ -67,9 +67,15 @@ def main() -> None:
             should_prune = prune_marker.read_text().strip() != today
         if should_prune:
             deleted = db.prune()
+            gaps_deleted = db.prune_routing_gaps()
             prune_marker.write_text(today)
-            if deleted > 0:
-                messages.append(f"Pruned {deleted} stale learning(s).")
+            if deleted > 0 or gaps_deleted > 0:
+                parts = []
+                if deleted > 0:
+                    parts.append(f"{deleted} stale learning(s)")
+                if gaps_deleted > 0:
+                    parts.append(f"{gaps_deleted} old routing gap(s)")
+                messages.append(f"Pruned {', '.join(parts)}.")
 
         # Auto-graduate eligible learnings to memory system (daily, alongside pruning)
         # Wrapped in its own try/except so a filesystem error can't disable

@@ -84,7 +84,7 @@ def _extract_observation(
     condensed = " ".join(tool_output.split())[:_OBSERVATION_MAX_VALUE_LEN]
 
     # Generate deterministic key from unwrapped command + output
-    sig = hashlib.md5((cmd_stripped + condensed).encode()).hexdigest()[:12]
+    sig = hashlib.md5((cmd_stripped + condensed).encode(), usedforsecurity=False).hexdigest()[:12]
     key = f"obs_{sig}"
 
     # Tags: tool name + first word of unwrapped command
@@ -257,7 +257,9 @@ def main() -> None:
                     # Record new patterns in DB
                     for issue in issues:
                         issue_sig = normalize_error(issue)
-                        sig_hash = hashlib.md5(issue_sig.encode()).hexdigest()[:12]
+                        sig_hash = hashlib.md5(
+                            issue_sig.encode(), usedforsecurity=False
+                        ).hexdigest()[:12]
                         db.record(
                             topic="quality",
                             key=f"qual_{sig_hash}",

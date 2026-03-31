@@ -132,7 +132,9 @@ class CircuitBreaker:
         """
         # --- Track same-error signature ---
         if analysis.work_summary:
-            error_sig = hashlib.md5(analysis.work_summary.encode()).hexdigest()[:12]  # noqa: S324
+            error_sig = hashlib.md5(
+                analysis.work_summary.encode(), usedforsecurity=False
+            ).hexdigest()[:12]
             if error_sig == self.state.last_error_signature:
                 self.state.consecutive_same_error += 1
             else:

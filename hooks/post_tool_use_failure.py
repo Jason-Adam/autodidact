@@ -47,7 +47,6 @@ def _tee_output(tool_name: str, error_text: str, cwd: str) -> str | None:
         tee_dir.mkdir(parents=True, exist_ok=True)
 
         safe_name = re.sub(r"[^\w\-]", "_", tool_name)
-        existing = sorted(tee_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
         epoch = int(time.time())
         filename = f"{epoch}_{safe_name}_error.log"
         tee_path = tee_dir / filename
@@ -57,7 +56,8 @@ def _tee_output(tool_name: str, error_text: str, cwd: str) -> str | None:
         tee_path.write_text(content)
         tee_path.chmod(0o600)
 
-        while len(existing) >= _TEE_MAX_FILES:
+        existing = sorted(tee_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
+        while len(existing) > _TEE_MAX_FILES:
             with contextlib.suppress(OSError):
                 existing.pop(0).unlink()
 
@@ -114,7 +114,7 @@ def main() -> None:
             messages.append(tee_hint)
 
         signature = normalize_error(error_text)
-        sig_hash = hashlib.md5(signature.encode()).hexdigest()[:12]
+        sig_hash = hashlib.md5(signature.encode(), usedforsecurity=False).hexdigest()[:12]
 
         # Check if a previous fix suggestion failed to resolve the error
         pending_fix = _load_pending_fix()

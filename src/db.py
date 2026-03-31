@@ -465,6 +465,19 @@ class LearningDB:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def prune_routing_gaps(self, *, max_age_days: int = 90) -> int:
+        """Delete routing gaps older than max_age_days. Returns count deleted."""
+        cutoff = datetime.now(UTC)
+        cursor = self.conn.execute(
+            """
+            DELETE FROM routing_gaps
+            WHERE julianday(?) - julianday(timestamp) > ?
+            """,
+            (cutoff.isoformat(), max_age_days),
+        )
+        self.conn.commit()
+        return cursor.rowcount
+
     # ── Stats ───────────────────────────────────────────────────────────
 
     def stats(self) -> dict[str, Any]:
