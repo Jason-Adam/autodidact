@@ -18,7 +18,6 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 _HOOKS = Path(__file__).resolve().parent
@@ -30,14 +29,13 @@ from constants import TOOL_BASH, TOOL_EDIT, TOOL_WRITE  # noqa: E402
 
 from src.confidence import (
     OBSERVATION_INITIAL_CONFIDENCE,
-    initial_confidence_for_outcome,
 )
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
 
 # ── Observation Capture ──────────────────────────────────────────────────
 
-_OBSERVATION_MIN_OUTPUT_LEN = 50
+_OBSERVATION_MIN_OUTPUT_LEN = 20
 _OBSERVATION_MAX_VALUE_LEN = 300
 _OBSERVATION_TOOLS = (TOOL_BASH,)
 
@@ -54,7 +52,6 @@ _SKIP_COMMAND_PREFIXES = (
     "type ",
     "file ",
     "stat ",
-    "rtk ",
 )
 
 
@@ -74,8 +71,12 @@ def _extract_observation(
     if not command:
         return None
 
-    # Skip noisy read-only commands
+    # Unwrap RTK proxy to get the real command for filtering/tagging
     cmd_stripped = command.lstrip()
+    if cmd_stripped.startswith("rtk proxy "):
+        cmd_stripped = cmd_stripped[len("rtk proxy ") :].lstrip()
+
+    # Skip noisy read-only commands
     for prefix in _SKIP_COMMAND_PREFIXES:
         if cmd_stripped.startswith(prefix):
             return None
@@ -83,17 +84,17 @@ def _extract_observation(
     # Condense output
     condensed = " ".join(tool_output.split())[:_OBSERVATION_MAX_VALUE_LEN]
 
-    # Generate deterministic key
-    sig = hashlib.md5((command + condensed).encode()).hexdigest()[:12]
+    # Generate deterministic key from unwrapped command + output
+    sig = hashlib.md5((cmd_stripped + condensed).encode()).hexdigest()[:12]
     key = f"obs_{sig}"
 
-    # Tags: tool name + first word of command
+    # Tags: tool name + first word of unwrapped command
     parts = cmd_stripped.split()
     first_word = parts[0] if parts else "unknown"
     tags = f"bash {first_word}"
 
-    # Value: command + condensed result
-    value = f"Command: {command[:100]}\nResult: {condensed[:200]}"
+    # Value: original command + condensed result
+    value = f"Command: {cmd_stripped[:100]}\nResult: {condensed[:200]}"
 
     return {"key": key, "value": value, "tags": tags}
 
@@ -103,8 +104,6 @@ _STATE_DIR = Path.home() / ".claude" / "autodidact"
 with contextlib.suppress(OSError):
     _STATE_DIR.mkdir(parents=True, exist_ok=True)
 _TOOL_CACHE_PATH = _STATE_DIR / "tool_cache.json"
-# Tracks the last known-error fix we surfaced, so we can decay if it didn't help
-_PENDING_FIX_PATH = _STATE_DIR / "pending_fix.json"
 
 
 def _get_tool_cache() -> dict:
@@ -131,79 +130,18 @@ def _has_tool(name: str) -> bool:
     return result
 
 
-def _load_pending_fix() -> dict | None:
-    """Load the pending fix marker, if any."""
-    if _PENDING_FIX_PATH.exists():
-        try:
-            return json.loads(_PENDING_FIX_PATH.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
-    return None
-
-
-def _save_pending_fix(signature: str, learning_id: int, session_id: str) -> None:
-    """Save a marker that we surfaced a fix for this error signature."""
-    with contextlib.suppress(OSError):
-        _PENDING_FIX_PATH.write_text(
-            json.dumps(
-                {"signature": signature, "learning_id": learning_id, "session_id": session_id}
-            )
-        )
-
-
-def _clear_pending_fix() -> None:
-    """Clear the pending fix marker."""
-    with contextlib.suppress(OSError):
-        _PENDING_FIX_PATH.unlink(missing_ok=True)
-
-
-_TEE_MAX_BYTES = 1024 * 1024  # 1MB
-_TEE_MAX_FILES = 20
-_TEE_MIN_BYTES = 500
-
-
-def _tee_output(tool_name: str, tool_output: str, cwd: str) -> str | None:
-    """Save full tool output to disk on error; return a hint string or None."""
-    if len(tool_output) < _TEE_MIN_BYTES:
-        return None
-
-    tee_dir = Path(cwd) / ".planning" / "tee"
-
-    with contextlib.suppress(OSError):
-        if tee_dir.exists() and tee_dir.is_symlink():
-            return None
-        tee_dir.mkdir(parents=True, exist_ok=True)
-
-        # Sanitize tool_name to prevent path traversal
-        safe_name = re.sub(r"[^\w\-]", "_", tool_name)
-
-        # Snapshot existing files BEFORE writing (avoids self-deletion on rotation)
-        existing = sorted(tee_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
-
-        # Write the tee file
-        epoch = int(time.time())
-        filename = f"{epoch}_{safe_name}.log"
-        tee_path = tee_dir / filename
-        content = tool_output
-        if len(content.encode()) > _TEE_MAX_BYTES:
-            content = tool_output.encode()[:_TEE_MAX_BYTES].decode("utf-8", errors="replace")
-        tee_path.write_text(content)
-        tee_path.chmod(0o600)
-
-        # Rotate: keep only the last _TEE_MAX_FILES files (from pre-write snapshot)
-        while len(existing) >= _TEE_MAX_FILES:
-            with contextlib.suppress(OSError):
-                existing.pop(0).unlink()
-
-        return f"[full output: .planning/tee/{filename}]"
-
-    return None
-
-
 def _normalize_error(error_text: str) -> str:
     """Create a normalized signature from an error message."""
-    # Remove file paths, line numbers, and timestamps
-    normalized = re.sub(r"/[\w/.-]+", "<PATH>", error_text)
+    # Strip linter file:line:col: prefix BEFORE path normalization
+    # Handles ruff ("file.py:42:5: CODE") and mypy ("file.py:174: error:")
+    normalized = re.sub(
+        r"^(\w+:\s)?[\w./\\-]+:\d+(?::\d+)?:\s*",
+        r"\1",
+        error_text,
+        flags=re.MULTILINE,
+    )
+    # Remove absolute file paths, line numbers, and timestamps
+    normalized = re.sub(r"/[\w/.-]+", "<PATH>", normalized)
     normalized = re.sub(r"line \d+", "line N", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"\d{4}-\d{2}-\d{2}", "<DATE>", normalized)
     # Take first meaningful line
@@ -320,7 +258,6 @@ def main() -> None:
     tool_name = hook_input.get("tool_name", "")
     tool_input = hook_input.get("tool_input", {})
     tool_output = hook_input.get("tool_output", "")
-    is_error = hook_input.get("is_error", False)
     session_id = hook_input.get("session_id") or hook_input.get("sessionId") or ""
     cwd = hook_input.get("cwd", "")
     project_path = resolve_main_repo(cwd) if cwd else ""
@@ -330,60 +267,11 @@ def main() -> None:
     try:
         db = LearningDB()
 
-        # Error learning
-        if is_error and tool_output:
-            tee_hint = _tee_output(tool_name, str(tool_output), cwd)
-            if tee_hint:
-                messages.append(tee_hint)
-            error_text = str(tool_output)
-            signature = _normalize_error(error_text)
-            sig_hash = hashlib.md5(signature.encode()).hexdigest()[:12]
+        # Error learning is handled by post_tool_use_failure.py
+        # (PostToolUse only fires on success; PostToolUseFailure handles errors)
 
-            # Check if a previous fix suggestion failed to resolve the error
-            pending_fix = _load_pending_fix()
-            if (
-                pending_fix
-                and pending_fix.get("signature") == signature
-                and pending_fix.get("session_id", "") == session_id
-            ):
-                # Same error reappeared after we surfaced a fix — decay that learning
-                db.decay(pending_fix["learning_id"])
-                _clear_pending_fix()
-
-            # Check if we know this error
-            known = db.get_by_error_signature(signature)
-            if known:
-                db.boost(known["id"])
-                msg = (
-                    f"KNOWN ERROR [{known['key']}]: {known['value']} "
-                    f"(conf: {known['confidence']:.2f})"
-                )
-                messages.append(msg)
-                # Track that we surfaced this fix — if the same error
-                # recurs next tool use, we'll decay it
-                _save_pending_fix(signature, known["id"], session_id)
-            else:
-                # Record new error
-                db.record(
-                    topic="error",
-                    key=f"err_{sig_hash}",
-                    value=f"Error in {tool_name}: {signature}",
-                    category="error_fix",
-                    confidence=initial_confidence_for_outcome("failure"),
-                    source="error_learner",
-                    project_path=project_path,
-                    session_id=session_id,
-                    error_signature=signature,
-                    error_type=tool_name,
-                    outcome="failure",
-                )
-                _clear_pending_fix()
-        # Non-error tool uses (Read, Edit, Grep) no longer clear pending fix.
-        # This lets the decay fire even when fix attempts involve intermediate
-        # tool calls. The pending fix is cleaned up at session end by stop.py.
-
-        # Per-edit quality checks
-        if tool_name in (TOOL_EDIT, TOOL_WRITE) and not is_error:
+        # Per-edit quality checks (PostToolUse only fires on success)
+        if tool_name in (TOOL_EDIT, TOOL_WRITE):
             file_path = tool_input.get("file_path", "")
             if file_path:
                 issues = _run_quality_check(file_path)
@@ -406,8 +294,7 @@ def main() -> None:
 
         # Observation capture (broad, confidence-gated)
         if (
-            not is_error
-            and tool_name in _OBSERVATION_TOOLS
+            tool_name in _OBSERVATION_TOOLS
             and tool_output
             and len(tool_output) >= _OBSERVATION_MIN_OUTPUT_LEN
         ):
