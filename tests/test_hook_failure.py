@@ -135,11 +135,13 @@ class TestDebugTipInHookOutput(unittest.TestCase):
         context = result.get("additionalContext", "")
         self.assertIn("TIP: Run /do debug", context)
 
-    def test_tip_appears_after_four_failures(self) -> None:
-        for _ in range(4):
-            result = self._run_main("ImportError: no module", "sess-xyz")
+    def test_tip_not_repeated_after_threshold(self) -> None:
+        """Tip fires exactly at threshold (3), not on 4th+ failures."""
+        for _ in range(3):
+            self._run_main("ImportError: no module", "sess-xyz")
+        result = self._run_main("ImportError: no module", "sess-xyz")
         context = result.get("additionalContext", "")
-        self.assertIn("TIP: Run /do debug", context)
+        self.assertNotIn("TIP: Run /do debug", context)
 
     def test_tip_not_shown_for_different_error_signatures(self) -> None:
         """Different errors should not share counts."""

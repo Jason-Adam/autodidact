@@ -390,8 +390,8 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("red green", 0.6),
         ("failing test", 0.5),
         ("prove it", 0.5),
-        ("test", 0.4),
-        ("coverage", 0.4),
+        ("test", 0.2),
+        ("coverage", 0.25),
     ],
     "debug": [
         ("debug", 0.6),
@@ -399,8 +399,8 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("root cause", 0.6),
         ("why is this", 0.5),
         ("bisect", 0.5),
-        ("failing", 0.4),
-        ("broken", 0.4),
+        ("failing", 0.25),
+        ("broken", 0.25),
     ],
 }
 

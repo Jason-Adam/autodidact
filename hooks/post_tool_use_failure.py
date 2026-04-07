@@ -106,9 +106,21 @@ def _load_failure_counts(session_id: str) -> dict[str, int]:
 
 
 def _save_failure_counts(session_id: str, counts: dict[str, int]) -> None:
-    """Persist per-signature failure counts."""
+    """Persist per-signature failure counts (atomic write via rename)."""
+    import os
+    import tempfile
+
     with contextlib.suppress(OSError):
-        _FAILURE_COUNTS_PATH.write_text(json.dumps({"session_id": session_id, "counts": counts}))
+        data = json.dumps({"session_id": session_id, "counts": counts})
+        fd, tmp = tempfile.mkstemp(dir=_STATE_DIR, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(data)
+            os.replace(tmp, _FAILURE_COUNTS_PATH)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
 
 
 def _increment_failure_count(session_id: str, sig_hash: str) -> int:
@@ -182,9 +194,9 @@ def main() -> None:
                 )
                 _clear_pending_fix()
 
-            # Track recurring failures and surface debug tip after threshold
+            # Track recurring failures and surface debug tip exactly at threshold
             count = _increment_failure_count(session_id, sig_hash)
-            if count >= _DEBUG_TIP_THRESHOLD:
+            if count == _DEBUG_TIP_THRESHOLD:
                 messages.append("TIP: Run /do debug for structured triage of this recurring error.")
     except Exception:
         pass  # Graceful degradation
