@@ -41,6 +41,8 @@ SKILL_DIRS = [
     "loop",
     "gc",
     "create-pr",
+    "tdd",
+    "debug",
 ]
 AGENT_FILES = [
     "interviewer.md",
@@ -52,6 +54,9 @@ AGENT_FILES = [
     "architecture-researcher.md",
     "web-researcher.md",
     "code-reviewer.md",
+    "security-reviewer.md",
+    "code-simplifier.md",
+    "test-engineer.md",
     "python-engineer.md",
 ]
 COMMAND_FILES = [
