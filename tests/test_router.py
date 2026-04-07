@@ -22,7 +22,9 @@ class TestTier0PatternMatch(unittest.TestCase):
     to bypass the plan gate, so we're testing pattern matching in isolation."""
 
     def setUp(self) -> None:
-        self._tmpdir = tempfile.mkdtemp()
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
         _write_plan(self._tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
 
     def test_interview_routes_to_plan(self) -> None:
@@ -183,7 +185,9 @@ class TestTier1ActiveState(unittest.TestCase):
 
 class TestTier2KeywordHeuristic(unittest.TestCase):
     def setUp(self) -> None:
-        self._tmpdir = tempfile.mkdtemp()
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
         _write_plan(self._tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
 
     def test_parallel_routes_to_batch(self) -> None:
@@ -360,14 +364,14 @@ class TestTier3Fallthrough(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertIn("Plan gate", r.reasoning)
 
-    def test_unmatched_with_plan_returns_classify(self) -> None:
-        """With a plan doc present, Tier 3 returns classify for LLM routing."""
+    def test_unmatched_with_plan_routes_via_plan_analysis(self) -> None:
+        """With a plan doc, Tier 2.5 plan analysis picks an executor."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            _write_plan(tmpdir, "## Plan\n### Phase 1: Fix\n- [ ] task\n")
+            _write_plan(tmpdir, "## Plan\n### Phase 1: Fix\n- [ ] Edit `src/router.py`\n")
             r = classify("fix the bug in the login form", cwd=tmpdir)
-            # With a plan doc, the plan gate doesn't fire, but Tier 2.5
-            # plan analysis may route to direct/run instead of classify
-            self.assertNotEqual(r.skill, "autodidact-plan")
+            # Single-phase plan → Tier 2.5 routes to direct
+            self.assertEqual(r.skill, "direct")
+            self.assertEqual(r.tier, 2)
 
 
 class TestSelectLoopMode(unittest.TestCase):
@@ -439,7 +443,9 @@ class TestSelectLoopMode(unittest.TestCase):
 
 class TestModelRouting(unittest.TestCase):
     def setUp(self) -> None:
-        self._tmpdir = tempfile.mkdtemp()
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
         _write_plan(self._tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
 
     def test_classify_returns_model_field(self) -> None:

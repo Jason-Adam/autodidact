@@ -13,33 +13,18 @@ from pathlib import Path
 
 _MAX_PLAN_BYTES = 256 * 1024  # 256 KB cap for plan file reads
 
-# Skills that are utility/non-implementation — exempt from the plan gate.
-_UTILITY_SKILLS: frozenset[str] = frozenset(
-    {
-        "gc",
-        "create-pr",
-        "polish",
-        "handoff",
-        "learn",
-        "learn-status",
-        "forget",
-        "sync-thoughts",
-        "research",
-        "plan",
-        "loop",
-        "do",
-    }
-)
-
-# Skills that produce code and require a plan doc before execution.
+# Skills that require a plan doc before execution.
+# Includes real skills (run, fleet, campaign) and signal values
+# (direct, batch, classify) that indicate implementation intent.
+# Everything NOT in this set is exempt from the plan gate.
 _IMPLEMENTATION_SKILLS: frozenset[str] = frozenset(
     {
         "run",
         "fleet",
         "campaign",
-        "direct",
-        "batch",
-        "classify",
+        "direct",  # Tier 2.5 signal: single-phase plan
+        "batch",  # built-in Claude Code parallel execution
+        "classify",  # Tier 3 signal: unclassified = assume implementation
     }
 )
 
@@ -523,7 +508,7 @@ def _has_plan_doc(cwd: str) -> bool:
     plans_dir = Path(cwd) / ".planning" / "plans"
     if not plans_dir.exists():
         return False
-    return bool(list(plans_dir.glob("*.md")))
+    return any(plans_dir.glob("*.md"))
 
 
 def _apply_plan_gate(result: RouterResult, cwd: str) -> RouterResult:
