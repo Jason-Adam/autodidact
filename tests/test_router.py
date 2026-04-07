@@ -153,9 +153,11 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-create-pr")
         self.assertEqual(r.tier, 0)
 
-    def test_no_match(self) -> None:
+    def test_no_match_redirects_to_plan(self) -> None:
+        """Unrecognized implementation prompt hits Tier 3 then plan gate."""
         r = classify("build the widget")
-        self.assertNotEqual(r.tier, 0)
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertIn("Plan gate", r.reasoning)
 
 
 class TestTier1ActiveState(unittest.TestCase):
@@ -319,11 +321,13 @@ class TestTier25PlanAnalysis(unittest.TestCase):
             self.assertEqual(r.skill, "autodidact-campaign")
             self.assertIn("7 phases", r.reasoning)
 
-    def test_no_plan_falls_through(self) -> None:
+    def test_no_plan_redirects_to_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             r = classify("implement something", cwd=tmpdir)
-            # No plan exists, should fall through to Tier 3
-            self.assertEqual(r.tier, 3)
+            # No plan exists — plan gate redirects to /plan at tier 0
+            self.assertEqual(r.skill, "autodidact-plan")
+            self.assertEqual(r.tier, 0)
+            self.assertIn("Plan gate", r.reasoning)
 
     def test_keyword_match_takes_precedence(self) -> None:
         """Tier 2 keywords should fire before Tier 2.5 plan analysis."""

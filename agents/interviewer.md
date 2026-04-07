@@ -59,6 +59,6 @@ When codebase context is available, ask CONFIRMATION questions citing specific f
 
 [Brief acknowledgment of what you understood from the last answer]
 
-[Your next question — focused, specific, 1-2 sentences]
-
 **Recommended answer:** [Your suggested answer based on codebase context or domain knowledge. The user can confirm with "yes" or override.]
+
+[Your next question — focused, specific, 1-2 sentences. This MUST be the final line so the response ends with a question mark.]

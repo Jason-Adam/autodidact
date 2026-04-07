@@ -506,7 +506,7 @@ def _has_plan_doc(cwd: str) -> bool:
     if not cwd:
         return False
     plans_dir = Path(cwd) / ".planning" / "plans"
-    if not plans_dir.exists():
+    if not plans_dir.is_dir():
         return False
     return any(plans_dir.glob("*.md"))
 
@@ -527,11 +527,12 @@ def _apply_plan_gate(result: RouterResult, cwd: str) -> RouterResult:
     if _has_plan_doc(cwd):
         return result
 
-    # No plan doc — redirect to /plan
+    # No plan doc — redirect to /plan.
+    # Use tier=0 so the hook emits the routing banner (tier < 3 check).
     return RouterResult(
         skill=_qualify_skill("plan"),
         confidence=1.0,
-        tier=result.tier,
+        tier=0,
         reasoning=f"Plan gate: no plan doc found; redirecting from {base} to plan",
         model=SKILL_MODEL_MAP.get("plan", "sonnet"),
     )
