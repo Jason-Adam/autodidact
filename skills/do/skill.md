@@ -23,6 +23,8 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 
 1. **If the hook already classified the request** (Tiers 0-2), the routing banner will appear in context as `AUTODIDACT ROUTING: skill=<name> model=<haiku|sonnet|opus> confidence=<float> tier=<int>`. Follow the routing decision — invoke the named skill directly. When spawning subagents, pass the `model` field to the Agent tool's `model` parameter.
 
+   **Plan gate**: Implementation skills (`run`, `fleet`, `campaign`, `direct`, `batch`) are automatically redirected to `/plan` by the router when no plan doc exists in `.planning/plans/`. Utility skills (`gc`, `pr`, `polish`, `handoff`, `learn`, `research`, etc.) are exempt. If the routing banner shows a redirect to `plan` with reasoning mentioning "Plan gate", this is expected behavior — the user needs a plan before implementation can begin.
+
 2. **If classification reached Tier 3** (no deterministic match), classify the user's intent using this complexity rubric:
 
    **Non-orchestration skills** (match these first):

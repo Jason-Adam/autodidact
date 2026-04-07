@@ -13,6 +13,36 @@ from pathlib import Path
 
 _MAX_PLAN_BYTES = 256 * 1024  # 256 KB cap for plan file reads
 
+# Skills that are utility/non-implementation — exempt from the plan gate.
+_UTILITY_SKILLS: frozenset[str] = frozenset(
+    {
+        "gc",
+        "create-pr",
+        "polish",
+        "handoff",
+        "learn",
+        "learn-status",
+        "forget",
+        "sync-thoughts",
+        "research",
+        "plan",
+        "loop",
+        "do",
+    }
+)
+
+# Skills that produce code and require a plan doc before execution.
+_IMPLEMENTATION_SKILLS: frozenset[str] = frozenset(
+    {
+        "run",
+        "fleet",
+        "campaign",
+        "direct",
+        "batch",
+        "classify",
+    }
+)
+
 
 @dataclass
 class RouterResult:
@@ -486,6 +516,42 @@ def _assign_model(result: RouterResult) -> RouterResult:
     return result
 
 
+def _has_plan_doc(cwd: str) -> bool:
+    """Check if a plan document exists in .planning/plans/."""
+    if not cwd:
+        return False
+    plans_dir = Path(cwd) / ".planning" / "plans"
+    if not plans_dir.exists():
+        return False
+    return bool(list(plans_dir.glob("*.md")))
+
+
+def _apply_plan_gate(result: RouterResult, cwd: str) -> RouterResult:
+    """Force-route to /plan if an implementation skill has no plan doc.
+
+    Utility skills (gc, pr, polish, etc.) are exempt. Implementation
+    skills (run, fleet, campaign, direct, classify) require a plan doc
+    in .planning/plans/ before they can execute.
+    """
+    # Strip prefix to get base skill name for classification
+    base = result.skill.removeprefix("autodidact-")
+
+    if base not in _IMPLEMENTATION_SKILLS:
+        return result
+
+    if _has_plan_doc(cwd):
+        return result
+
+    # No plan doc — redirect to /plan
+    return RouterResult(
+        skill=_qualify_skill("plan"),
+        confidence=1.0,
+        tier=result.tier,
+        reasoning=f"Plan gate: no plan doc found; redirecting from {base} to plan",
+        model=SKILL_MODEL_MAP.get("plan", "sonnet"),
+    )
+
+
 def classify(prompt: str, cwd: str = "") -> RouterResult:
     """Cost-ascending classification. Tiers 0-2 are deterministic.
 
@@ -505,13 +571,14 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
     ):
         if result:
             result.skill = _qualify_skill(result.skill)
-            return _assign_model(result)
+            result = _assign_model(result)
+            return _apply_plan_gate(result, cwd)
 
     # Tier 3: Signal for LLM classification (no prefix needed)
     # Record the gap so we can improve deterministic tiers over time
     _record_routing_gap(prompt, tiers_attempted=[0, 1, 2, 2.5])
 
-    return _assign_model(
+    result = _assign_model(
         RouterResult(
             skill="classify",
             confidence=0.0,
@@ -519,6 +586,7 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
             reasoning="No deterministic match; LLM classification needed",
         )
     )
+    return _apply_plan_gate(result, cwd)
 
 
 def _record_routing_gap(prompt: str, tiers_attempted: list[int | float]) -> None:
