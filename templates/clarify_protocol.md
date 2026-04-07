@@ -20,6 +20,6 @@ When codebase context is available, include specific files/patterns in the initi
 - GOOD: "I see JWT middleware in `src/auth/`. Should the new feature use this?"
 - BAD: "Do you have any authentication set up?"
 
-## Escape Hatch
+## No Escape Hatch
 
-If the user signals they want to skip clarification (e.g., "just go", "skip", "I know what I want"), end the Clarify phase immediately and proceed with the information you have.
+The Clarify phase is mandatory. Even well-scoped requests benefit from Socratic questioning — it surfaces blind spots, identifies low-information areas, and sharpens constraints. The interview runs until exit criteria are met (ambiguity <= 0.2 or maximum rounds exhausted). There is no skip mechanism.

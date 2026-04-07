@@ -18,6 +18,15 @@ def _write_plan(tmpdir: str, content: str) -> None:
 
 
 class TestTier0PatternMatch(unittest.TestCase):
+    """Tier 0 tests. Implementation skills use a tmpdir with a plan doc
+    to bypass the plan gate, so we're testing pattern matching in isolation."""
+
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
+        _write_plan(self._tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
+
     def test_interview_routes_to_plan(self) -> None:
         r = classify("/do interview")
         self.assertEqual(r.skill, "autodidact-plan")
@@ -29,17 +38,17 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.tier, 0)
 
     def test_direct_fleet(self) -> None:
-        r = classify("fleet")
+        r = classify("fleet", cwd=self._tmpdir)
         self.assertEqual(r.skill, "autodidact-fleet")
         self.assertEqual(r.tier, 0)
 
     def test_do_prefix_run(self) -> None:
-        r = classify("/do run refactor the DB")
+        r = classify("/do run refactor the DB", cwd=self._tmpdir)
         self.assertEqual(r.skill, "autodidact-run")
         self.assertEqual(r.tier, 0)
 
     def test_bare_run(self) -> None:
-        r = classify("run")
+        r = classify("run", cwd=self._tmpdir)
         self.assertEqual(r.skill, "autodidact-run")
         self.assertEqual(r.tier, 0)
 
@@ -49,17 +58,17 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertNotEqual(r.skill, "autodidact-run")
 
     def test_marshal_legacy_alias(self) -> None:
-        r = classify("do marshal")
+        r = classify("do marshal", cwd=self._tmpdir)
         self.assertEqual(r.skill, "autodidact-run")
         self.assertEqual(r.tier, 0)
 
     def test_campaign(self) -> None:
-        r = classify("/do campaign")
+        r = classify("/do campaign", cwd=self._tmpdir)
         self.assertEqual(r.skill, "autodidact-campaign")
         self.assertEqual(r.tier, 0)
 
     def test_archon_legacy_alias(self) -> None:
-        r = classify("archon")
+        r = classify("archon", cwd=self._tmpdir)
         self.assertEqual(r.skill, "autodidact-campaign")
         self.assertEqual(r.tier, 0)
 
@@ -144,9 +153,11 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-create-pr")
         self.assertEqual(r.tier, 0)
 
-    def test_no_match(self) -> None:
+    def test_no_match_redirects_to_plan(self) -> None:
+        """Unrecognized implementation prompt hits Tier 3 then plan gate."""
         r = classify("build the widget")
-        self.assertNotEqual(r.tier, 0)
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertIn("Plan gate", r.reasoning)
 
 
 class TestTier1ActiveState(unittest.TestCase):
@@ -162,6 +173,8 @@ class TestTier1ActiveState(unittest.TestCase):
                     }
                 )
             )
+            # Plan gate requires a plan doc for implementation skills
+            _write_plan(tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
             r = classify("continue working", cwd=tmpdir)
             self.assertEqual(r.skill, "autodidact-campaign")
             self.assertEqual(r.tier, 1)
@@ -173,13 +186,19 @@ class TestTier1ActiveState(unittest.TestCase):
 
 
 class TestTier2KeywordHeuristic(unittest.TestCase):
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
+        _write_plan(self._tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
+
     def test_parallel_routes_to_batch(self) -> None:
-        r = classify("execute these tasks in parallel concurrently")
+        r = classify("execute these tasks in parallel concurrently", cwd=self._tmpdir)
         self.assertEqual(r.skill, "batch")
         self.assertEqual(r.tier, 2)
 
     def test_worktree_wave_routes_to_fleet(self) -> None:
-        r = classify("dispatch these in multi-wave worktree execution")
+        r = classify("dispatch these in multi-wave worktree execution", cwd=self._tmpdir)
         self.assertEqual(r.skill, "autodidact-fleet")
         self.assertEqual(r.tier, 2)
 
@@ -229,8 +248,11 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.tier, 2)
 
     def test_low_score_falls_through(self) -> None:
+        """Low keyword score falls through to Tier 3, then plan gate redirects."""
         r = classify("fix the bug in the login form")
-        self.assertEqual(r.tier, 3)  # Falls through to LLM
+        # Without a plan doc, the plan gate redirects classify → plan
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertIn("Plan gate", r.reasoning)
 
 
 class TestTier25PlanAnalysis(unittest.TestCase):
@@ -299,11 +321,13 @@ class TestTier25PlanAnalysis(unittest.TestCase):
             self.assertEqual(r.skill, "autodidact-campaign")
             self.assertIn("7 phases", r.reasoning)
 
-    def test_no_plan_falls_through(self) -> None:
+    def test_no_plan_redirects_to_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             r = classify("implement something", cwd=tmpdir)
-            # No plan exists, should fall through to Tier 3
-            self.assertEqual(r.tier, 3)
+            # No plan exists — plan gate redirects to /plan at tier 0
+            self.assertEqual(r.skill, "autodidact-plan")
+            self.assertEqual(r.tier, 0)
+            self.assertIn("Plan gate", r.reasoning)
 
     def test_keyword_match_takes_precedence(self) -> None:
         """Tier 2 keywords should fire before Tier 2.5 plan analysis."""
@@ -337,11 +361,21 @@ class TestTier25PlanAnalysis(unittest.TestCase):
 
 
 class TestTier3Fallthrough(unittest.TestCase):
-    def test_unmatched_returns_classify(self) -> None:
+    def test_unmatched_without_plan_redirects_to_plan(self) -> None:
+        """Without a plan doc, Tier 3 classify is an implementation intent
+        and gets redirected to /plan by the plan gate."""
         r = classify("fix the bug in the login form")
-        self.assertEqual(r.skill, "classify")
-        self.assertEqual(r.tier, 3)
-        self.assertAlmostEqual(r.confidence, 0.0)
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertIn("Plan gate", r.reasoning)
+
+    def test_unmatched_with_plan_routes_via_plan_analysis(self) -> None:
+        """With a plan doc, Tier 2.5 plan analysis picks an executor."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_plan(tmpdir, "## Plan\n### Phase 1: Fix\n- [ ] Edit `src/router.py`\n")
+            r = classify("fix the bug in the login form", cwd=tmpdir)
+            # Single-phase plan → Tier 2.5 routes to direct
+            self.assertEqual(r.skill, "direct")
+            self.assertEqual(r.tier, 2)
 
 
 class TestSelectLoopMode(unittest.TestCase):
@@ -412,13 +446,19 @@ class TestSelectLoopMode(unittest.TestCase):
 
 
 class TestModelRouting(unittest.TestCase):
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
+        _write_plan(self._tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
+
     def test_classify_returns_model_field(self) -> None:
-        r = classify("fleet")
+        r = classify("fleet", cwd=self._tmpdir)
         self.assertTrue(hasattr(r, "model"))
         self.assertNotEqual(r.model, "")
 
     def test_fleet_gets_sonnet(self) -> None:
-        r = classify("fleet")
+        r = classify("fleet", cwd=self._tmpdir)
         self.assertEqual(r.model, "sonnet")
 
     def test_research_gets_opus(self) -> None:
@@ -426,7 +466,7 @@ class TestModelRouting(unittest.TestCase):
         self.assertEqual(r.model, "opus")
 
     def test_campaign_gets_opus(self) -> None:
-        r = classify("/do campaign")
+        r = classify("/do campaign", cwd=self._tmpdir)
         self.assertEqual(r.model, "opus")
 
     def test_learn_status_gets_haiku(self) -> None:
@@ -437,9 +477,11 @@ class TestModelRouting(unittest.TestCase):
         r = classify("/do forget")
         self.assertEqual(r.model, "haiku")
 
-    def test_tier3_fallback_gets_opus(self) -> None:
+    def test_tier3_fallback_gets_plan_model_via_gate(self) -> None:
+        """Without a plan doc, Tier 3 is redirected to plan by the gate."""
         r = classify("fix the bug in the login form")
-        self.assertEqual(r.model, "opus")
+        # Plan gate redirects to plan, which gets sonnet
+        self.assertEqual(r.model, "sonnet")
 
     def test_unknown_skill_defaults_to_sonnet(self) -> None:
         from src.router import RouterResult, _assign_model
@@ -453,6 +495,63 @@ class TestModelRouting(unittest.TestCase):
         # Every autodidact skill should be in the model map
         for skill in _AUTODIDACT_SKILLS:
             self.assertIn(skill, SKILL_MODEL_MAP, f"Skill '{skill}' missing from SKILL_MODEL_MAP")
+
+
+class TestPlanGate(unittest.TestCase):
+    """Tests for the mandatory plan gate on implementation skills."""
+
+    def test_run_without_plan_redirects_to_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = classify("/do run refactor the DB", cwd=tmpdir)
+            self.assertEqual(r.skill, "autodidact-plan")
+            self.assertIn("Plan gate", r.reasoning)
+
+    def test_run_with_plan_passes_through(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_plan(tmpdir, "## Plan\n### Phase 1: Do it\n- [ ] task\n")
+            r = classify("/do run refactor the DB", cwd=tmpdir)
+            self.assertEqual(r.skill, "autodidact-run")
+
+    def test_fleet_without_plan_redirects_to_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = classify("fleet", cwd=tmpdir)
+            self.assertEqual(r.skill, "autodidact-plan")
+            self.assertIn("Plan gate", r.reasoning)
+
+    def test_campaign_without_plan_redirects_to_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = classify("/do campaign", cwd=tmpdir)
+            self.assertEqual(r.skill, "autodidact-plan")
+            self.assertIn("Plan gate", r.reasoning)
+
+    def test_utility_skills_exempt_from_gate(self) -> None:
+        """Utility skills should never be redirected, even without a plan."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for prompt, expected in [
+                ("gc", "autodidact-gc"),
+                ("pr", "autodidact-create-pr"),
+                ("polish", "autodidact-polish"),
+                ("handoff", "autodidact-handoff"),
+                ("/do learn something", "autodidact-learn"),
+                ("/do research the auth flow", "autodidact-research"),
+                ("plan", "autodidact-plan"),
+            ]:
+                r = classify(prompt, cwd=tmpdir)
+                self.assertEqual(
+                    r.skill, expected, f"'{prompt}' should route to {expected}, got {r.skill}"
+                )
+
+    def test_no_cwd_redirects_to_plan(self) -> None:
+        """Without cwd, no plan can be found, so implementation skills redirect."""
+        r = classify("fleet")
+        self.assertEqual(r.skill, "autodidact-plan")
+
+    def test_tier3_without_plan_redirects_to_plan(self) -> None:
+        """Tier 3 classify is implementation-class and gets gated."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = classify("build a new widget for the dashboard", cwd=tmpdir)
+            self.assertEqual(r.skill, "autodidact-plan")
+            self.assertIn("Plan gate", r.reasoning)
 
 
 if __name__ == "__main__":

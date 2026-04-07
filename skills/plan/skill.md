@@ -111,10 +111,10 @@ When entering this phase:
 
 5. **Suggest syncing**: Offer to run `/sync-thoughts` to copy the plan to `~/.planning/` for cross-project access.
 
-6. **IMPORTANT — Always suggest saving before implementation**: After the plan is persisted, explicitly tell the user that the plan document is saved and ready. Present their options:
-   - Start a fresh session for implementation using `/run`, `/campaign`, or `/fleet` (recommended — clean context)
-   - Continue to implement in this session
-   - The local copy at `.planning/plans/` is always kept for implementation skills to read.
+6. **IMPORTANT — Always end the session after plan approval**: After the plan is persisted, tell the user the plan document is saved and instruct them to clear context before implementation. Do NOT offer to continue implementation in this session.
+   - Tell the user to start a fresh session with `/clear` then use `/run`, `/campaign`, or `/fleet`
+   - The plan doc at `.planning/plans/` will be picked up automatically by the router
+   - This separation ensures implementation runs with full context budget, not a context window half-consumed by planning
 
 ## Quality Gates
 
@@ -126,15 +126,16 @@ When entering this phase:
 
 ## Exit Protocol
 
-**Always confirm documents are persisted before suggesting implementation.** The user prefers to clear context and start a fresh session for implementation.
+**Always confirm documents are persisted before ending.** Implementation MUST happen in a fresh session — never in the planning session.
 
 Once the plan is approved and saved:
 1. Confirm the plan document path (`.planning/plans/...`)
 2. Offer `/sync-thoughts` to centralize the document
-3. Recommend starting a fresh session for implementation:
+3. Instruct the user to `/clear` and start a fresh session for implementation:
    - Simple plans → `/run`
    - Complex plans → `/campaign` for multi-session execution
    - Parallelizable plans → `/fleet`
+4. Do NOT offer to continue implementation in this session
 
 Record planning learnings in the DB (what patterns were discovered, what questions helped).
 
