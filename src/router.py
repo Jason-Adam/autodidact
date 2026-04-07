@@ -54,6 +54,8 @@ SKILL_MODEL_MAP: dict[str, str] = {
     "experiment": "sonnet",
     "sync-thoughts": "sonnet",
     "learn": "sonnet",
+    "tdd": "sonnet",
+    "debug": "sonnet",
     # Opus tier — complex reasoning
     "research": "opus",
     "campaign": "opus",
@@ -87,6 +89,9 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?loop$", "loop"),  # bare "loop" with no arguments
     (r"^/?(do\s+)?gc\b", "gc"),
     (r"^/?(do\s+)?(create[-\s]?pr|pr)\b", "create-pr"),
+    (r"^/?(do\s+)?(tdd|test-driven)\b", "tdd"),
+    (r"^/?(do\s+)?debug\b", "debug"),
+    (r"^/?(do\s+)?triage\b", "debug"),
 ]
 
 
@@ -378,6 +383,25 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("confidence stats", 0.6),
         ("graduation candidates", 0.6),
     ],
+    "tdd": [
+        ("tdd", 0.7),
+        ("test-driven", 0.7),
+        ("write tests", 0.6),
+        ("red green", 0.6),
+        ("failing test", 0.5),
+        ("prove it", 0.5),
+        ("test", 0.2),
+        ("coverage", 0.25),
+    ],
+    "debug": [
+        ("debug", 0.6),
+        ("triage", 0.5),
+        ("root cause", 0.6),
+        ("why is this", 0.5),
+        ("bisect", 0.5),
+        ("failing", 0.25),
+        ("broken", 0.25),
+    ],
 }
 
 
@@ -448,6 +472,8 @@ _AUTODIDACT_SKILLS: frozenset[str] = frozenset(
         "do",
         "gc",
         "create-pr",
+        "tdd",
+        "debug",
     }
 )
 
