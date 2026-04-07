@@ -554,5 +554,161 @@ class TestPlanGate(unittest.TestCase):
             self.assertIn("Plan gate", r.reasoning)
 
 
+class TestTDDRouting(unittest.TestCase):
+    """Tests for TDD skill routing."""
+
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
+
+    # Tier 0 pattern tests
+    def test_tdd_routes_to_tdd(self) -> None:
+        r = classify("tdd")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_tdd_routes_to_tdd(self) -> None:
+        r = classify("/do tdd")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 0)
+
+    def test_test_driven_routes_to_tdd(self) -> None:
+        r = classify("test-driven")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_test_driven_routes_to_tdd(self) -> None:
+        r = classify("/do test-driven development")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 0)
+
+    # Tier 2 keyword tests
+    def test_write_tests_keyword_routes_to_tdd(self) -> None:
+        r = classify("write tests for the auth module")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 2)
+
+    def test_red_green_keyword_routes_to_tdd(self) -> None:
+        r = classify("red green refactor cycle for this function")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 2)
+
+    def test_failing_test_keyword_routes_to_tdd(self) -> None:
+        r = classify("write a failing test for the login flow")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 2)
+
+    def test_prove_it_keyword_routes_to_tdd(self) -> None:
+        r = classify("prove it works with a test")
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertEqual(r.tier, 2)
+
+    # Plan gate exemption
+    def test_tdd_exempt_from_plan_gate(self) -> None:
+        """TDD is a utility skill — should not be redirected to plan even without plan doc."""
+        r = classify("tdd", cwd=self._tmpdir)
+        self.assertEqual(r.skill, "autodidact-tdd")
+        self.assertNotIn("Plan gate", r.reasoning)
+
+    def test_tdd_in_skill_model_map(self) -> None:
+        from src.router import SKILL_MODEL_MAP
+
+        self.assertIn("tdd", SKILL_MODEL_MAP)
+        self.assertEqual(SKILL_MODEL_MAP["tdd"], "sonnet")
+
+    def test_tdd_gets_sonnet_model(self) -> None:
+        r = classify("/do tdd")
+        self.assertEqual(r.model, "sonnet")
+
+    def test_tdd_in_autodidact_skills(self) -> None:
+        from src.router import _AUTODIDACT_SKILLS
+
+        self.assertIn("tdd", _AUTODIDACT_SKILLS)
+
+    def test_tdd_not_in_implementation_skills(self) -> None:
+        from src.router import _IMPLEMENTATION_SKILLS
+
+        self.assertNotIn("tdd", _IMPLEMENTATION_SKILLS)
+
+
+class TestDebugRouting(unittest.TestCase):
+    """Tests for debug skill routing."""
+
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory()
+        self._tmpdir = self._td.name
+        self.addCleanup(self._td.cleanup)
+
+    # Tier 0 pattern tests
+    def test_debug_routes_to_debug(self) -> None:
+        r = classify("debug")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_debug_routes_to_debug(self) -> None:
+        r = classify("/do debug")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 0)
+
+    def test_triage_routes_to_debug(self) -> None:
+        r = classify("triage")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_triage_routes_to_debug(self) -> None:
+        r = classify("/do triage")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 0)
+
+    # Tier 2 keyword tests
+    def test_root_cause_keyword_routes_to_debug(self) -> None:
+        r = classify("find the root cause of this crash")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 2)
+
+    def test_why_is_this_keyword_routes_to_debug(self) -> None:
+        r = classify("why is this failing in production")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 2)
+
+    def test_bisect_keyword_routes_to_debug(self) -> None:
+        r = classify("use git bisect to find the regression")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 2)
+
+    def test_debug_keyword_routes_to_debug(self) -> None:
+        r = classify("help me debug this error")
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertEqual(r.tier, 2)
+
+    # Plan gate exemption
+    def test_debug_exempt_from_plan_gate(self) -> None:
+        """Debug is a utility skill — should not be redirected to plan even without plan doc."""
+        r = classify("debug", cwd=self._tmpdir)
+        self.assertEqual(r.skill, "autodidact-debug")
+        self.assertNotIn("Plan gate", r.reasoning)
+
+    def test_debug_in_skill_model_map(self) -> None:
+        from src.router import SKILL_MODEL_MAP
+
+        self.assertIn("debug", SKILL_MODEL_MAP)
+        self.assertEqual(SKILL_MODEL_MAP["debug"], "sonnet")
+
+    def test_debug_gets_sonnet_model(self) -> None:
+        r = classify("/do debug")
+        self.assertEqual(r.model, "sonnet")
+
+    def test_debug_in_autodidact_skills(self) -> None:
+        from src.router import _AUTODIDACT_SKILLS
+
+        self.assertIn("debug", _AUTODIDACT_SKILLS)
+
+    def test_debug_not_in_implementation_skills(self) -> None:
+        from src.router import _IMPLEMENTATION_SKILLS
+
+        self.assertNotIn("debug", _IMPLEMENTATION_SKILLS)
+
+
 if __name__ == "__main__":
     unittest.main()

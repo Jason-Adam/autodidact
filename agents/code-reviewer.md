@@ -51,6 +51,31 @@ You are a code review specialist. Your job is to find real bugs, security issues
 [1-2 sentence overall assessment]
 ```
 
+## Checklist
+
+### Mock Boundaries
+
+| What to Mock | What NOT to Mock | Why |
+|--------------|------------------|-----|
+| External HTTP calls | Pure functions with no I/O | External calls make tests slow and flaky |
+| Database reads/writes | Business logic that only computes | Logic should be tested with real inputs |
+| Filesystem operations | In-memory data structures | Keeps tests hermetic |
+| Clock/time functions | Validation helpers | Time-dependent tests are nondeterministic |
+| Third-party service clients | Error handling branches | Real error paths should be exercised |
+
+### Common Anti-Patterns
+
+| Anti-Pattern | Better Approach |
+|--------------|-----------------|
+| Catching broad exception and swallowing it | Catch specific exception; log or re-raise |
+| Mutable default argument (`def f(x=[])`) | Use `None` sentinel; assign inside function |
+| Boolean parameter controlling two code paths | Split into two functions |
+| Deeply nested conditionals (arrow code) | Early returns / guard clauses |
+| Magic numbers inline (`if status == 3`) | Named constants or enums |
+| Test that asserts no exception was raised | Assert the actual return value |
+| Shared mutable state between tests | Each test sets up its own fixtures |
+| Ignoring return values of functions that signal errors | Check and handle return values explicitly |
+
 ## Learning Capture
 
 When you discover a recurring bug pattern, a project-specific anti-pattern, or a security concern that applies broadly, emit a learning block at the end of your output:

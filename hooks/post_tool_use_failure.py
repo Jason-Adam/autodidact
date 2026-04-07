@@ -89,6 +89,36 @@ def _clear_pending_fix() -> None:
         _PENDING_FIX_PATH.unlink(missing_ok=True)
 
 
+_FAILURE_COUNTS_PATH = _STATE_DIR / "failure_counts.json"
+_DEBUG_TIP_THRESHOLD = 3
+
+
+def _load_failure_counts(session_id: str) -> dict[str, int]:
+    """Load per-signature failure counts for the current session."""
+    if _FAILURE_COUNTS_PATH.exists():
+        try:
+            data = json.loads(_FAILURE_COUNTS_PATH.read_text())
+            if data.get("session_id") == session_id:
+                return data.get("counts", {})
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_failure_counts(session_id: str, counts: dict[str, int]) -> None:
+    """Persist per-signature failure counts."""
+    with contextlib.suppress(OSError):
+        _FAILURE_COUNTS_PATH.write_text(json.dumps({"session_id": session_id, "counts": counts}))
+
+
+def _increment_failure_count(session_id: str, sig_hash: str) -> int:
+    """Increment count for sig_hash and return the new count."""
+    counts = _load_failure_counts(session_id)
+    counts[sig_hash] = counts.get(sig_hash, 0) + 1
+    _save_failure_counts(session_id, counts)
+    return counts[sig_hash]
+
+
 def main() -> None:
     try:
         hook_input = json.loads(sys.stdin.read())
@@ -151,6 +181,11 @@ def main() -> None:
                     outcome="failure",
                 )
                 _clear_pending_fix()
+
+            # Track recurring failures and surface debug tip after threshold
+            count = _increment_failure_count(session_id, sig_hash)
+            if count >= _DEBUG_TIP_THRESHOLD:
+                messages.append("TIP: Run /do debug for structured triage of this recurring error.")
     except Exception:
         pass  # Graceful degradation
 
