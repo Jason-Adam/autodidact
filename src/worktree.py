@@ -360,9 +360,16 @@ class WorktreeManager:
             self._save_state()
             return True
 
-        # Merge failed — abort if a merge is in progress to leave tree clean
-        merge_head = self.merge_root / ".git" / "MERGE_HEAD"
-        if merge_head.exists():
+        # Merge failed — abort if a merge is in progress to leave tree clean.
+        # Use rev-parse instead of checking .git/MERGE_HEAD on the filesystem
+        # because in a worktree .git is a file, not a directory.
+        check = subprocess.run(
+            ["git", "rev-parse", "--verify", "MERGE_HEAD"],
+            cwd=str(self.merge_root),
+            capture_output=True,
+            text=True,
+        )
+        if check.returncode == 0:
             subprocess.run(
                 ["git", "merge", "--abort"],
                 cwd=str(self.merge_root),

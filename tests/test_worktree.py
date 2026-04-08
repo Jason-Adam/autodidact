@@ -280,9 +280,14 @@ class TestMergeWorktree(unittest.TestCase):
             self.assertEqual(worker.status, "failed")
 
             # Verify no merge in progress (abort succeeded)
-            # Untracked dirs (.planning/, .worktrees/) are expected fleet state
-            merge_head = mgr.merge_root / ".git" / "MERGE_HEAD"
-            self.assertFalse(merge_head.exists(), "MERGE_HEAD should not exist after abort")
+            # Use rev-parse to check MERGE_HEAD (works in both repos and worktrees)
+            check = subprocess.run(
+                ["git", "rev-parse", "--verify", "MERGE_HEAD"],
+                cwd=str(mgr.merge_root),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(check.returncode, 0, "MERGE_HEAD should not exist after abort")
 
     def test_merge_uses_merge_root_not_project_root(self) -> None:
         """Merge runs in the spawning worktree, not the main repo."""
