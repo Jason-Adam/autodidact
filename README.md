@@ -81,7 +81,7 @@ uv run pre-commit install     # set up pre-commit hooks (ruff lint, ruff format,
 
 This will:
 1. Symlink skills, agents, and commands into `~/.claude/`
-2. Register 9 hooks in `~/.claude/settings.json` (hooks run via `uv run` so they have access to project dependencies)
+2. Register 10 hooks in `~/.claude/settings.json` (hooks run via `uv run` so they have access to project dependencies)
 3. Initialize the learning database at `~/.claude/autodidact/learning.db`
 
 To uninstall:
