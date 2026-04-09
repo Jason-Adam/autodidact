@@ -1,29 +1,15 @@
 """Tests for the doc verification script."""
 
-from __future__ import annotations
-
-# Import functions from scripts/verify_docs.py
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-_spec = importlib.util.spec_from_file_location(
-    "verify_docs",
-    Path(__file__).resolve().parent.parent / "scripts" / "verify_docs.py",
+from verify_docs import (
+    extract_claude_md_counts,
+    extract_commands_md_sections,
+    extract_readme_counts,
+    extract_readme_install_hook_count,
+    extract_readme_skill_names,
+    extract_readme_test_count,
 )
-assert _spec is not None
-assert _spec.loader is not None
-_mod = importlib.util.module_from_spec(_spec)
-sys.modules["verify_docs"] = _mod
-_spec.loader.exec_module(_mod)
-
-extract_readme_counts = _mod.extract_readme_counts
-extract_claude_md_counts = _mod.extract_claude_md_counts
-extract_readme_skill_names = _mod.extract_readme_skill_names
-extract_commands_md_sections = _mod.extract_commands_md_sections
-extract_readme_test_count = _mod.extract_readme_test_count
-extract_readme_install_hook_count = _mod.extract_readme_install_hook_count
 
 
 class TestExtractReadmeCounts(unittest.TestCase):

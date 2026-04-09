@@ -10,8 +10,6 @@ Checks:
 Exit 0 if everything is in sync, exit 1 with a summary of drift.
 """
 
-from __future__ import annotations
-
 import re
 import subprocess
 import sys
@@ -23,25 +21,19 @@ def get_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def count_dirs(path: Path) -> set[str]:
+def dir_names(path: Path) -> set[str]:
     """Return set of directory names under path."""
     if not path.is_dir():
         return set()
-    return {d.name for d in path.iterdir() if d.is_dir() and not d.name.startswith(".")}
+    return {d.name for d in path.iterdir() if d.is_dir() and not d.name.startswith((".", "__"))}
 
 
-def count_py_files(path: Path) -> int:
-    """Return count of .py files under path."""
+def count_py_files(path: Path, *, exclude: set[str] | None = None) -> int:
+    """Return count of .py files under path, optionally excluding names."""
     if not path.is_dir():
         return 0
-    return len([f for f in path.iterdir() if f.suffix == ".py"])
-
-
-def count_src_modules(path: Path) -> int:
-    """Return count of .py modules (excluding __init__.py) under src/."""
-    if not path.is_dir():
-        return 0
-    return len([f for f in path.iterdir() if f.suffix == ".py" and f.name != "__init__.py"])
+    exclude = exclude or set()
+    return len([f for f in path.iterdir() if f.suffix == ".py" and f.name not in exclude])
 
 
 def extract_readme_counts(readme: str) -> dict[str, int]:
@@ -59,7 +51,6 @@ def extract_readme_counts(readme: str) -> dict[str, int]:
 def extract_claude_md_counts(text: str) -> dict[str, int]:
     """Extract component counts from CLAUDE.md architecture bullets."""
     counts = {}
-    # Pattern: - **hooks/**: 10 Python files ...
     for match in re.finditer(
         r"-\s*\*\*(\w+)/?\*\*:\s*(\d+)",
         text,
@@ -74,7 +65,6 @@ def extract_readme_skill_names(readme: str) -> set[str]:
     names = set()
     for match in re.finditer(r"^\|\s*([\w-]+)\s*\|", readme, re.MULTILINE):
         name = match.group(1).strip()
-        # Skip table headers, separator rows, and other tables
         if name.lower() in ("skill", "layer", "tool") or set(name) <= {"-"}:
             continue
         names.add(name)
@@ -85,9 +75,7 @@ def extract_commands_md_sections(text: str) -> set[str]:
     """Extract skill names from docs/commands.md section headings."""
     names = set()
     for match in re.finditer(r"^##\s+([\w-]+)\s+--", text, re.MULTILINE):
-        name = match.group(1).strip()
-        if name != "/do":
-            names.add(name)
+        names.add(match.group(1).strip())
     return names
 
 
@@ -109,11 +97,9 @@ def get_actual_test_count(root: Path) -> int | None:
             cwd=root,
             timeout=30,
         )
-        # Last line: "510 tests collected in 0.11s"
-        for line in result.stdout.strip().splitlines():
-            match = re.search(r"(\d+)\s+tests?\s+collected", line)
-            if match:
-                return int(match.group(1))
+        match = re.search(r"(\d+)\s+tests?\s+collected", result.stdout)
+        if match:
+            return int(match.group(1))
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
     return None
@@ -127,11 +113,25 @@ def extract_readme_install_hook_count(readme: str) -> int | None:
     return None
 
 
+def _check_counts(
+    errors: list[str],
+    source: str,
+    documented: dict[str, int],
+    expected: dict[str, int],
+) -> None:
+    """Check documented counts against expected, flagging mismatches and missing."""
+    for label, actual in expected.items():
+        doc_val = documented.get(label)
+        if doc_val is None:
+            errors.append(f"{source}: missing entry for {label} (actual is {actual})")
+        elif doc_val != actual:
+            errors.append(f"{source}: {label} says {doc_val}, actual is {actual}")
+
+
 def main() -> int:
     root = get_root()
     errors: list[str] = []
 
-    # Read doc files
     readme_path = root / "README.md"
     claude_md_path = root / "CLAUDE.md"
     commands_md_path = root / "docs" / "commands.md"
@@ -141,46 +141,40 @@ def main() -> int:
     commands_md = commands_md_path.read_text() if commands_md_path.exists() else ""
 
     # Actual counts
-    skill_dirs = count_dirs(root / "skills")
+    skill_dirs = dir_names(root / "skills")
     agent_files = (
         {f.stem for f in (root / "agents").iterdir() if f.suffix == ".md"}
         if (root / "agents").is_dir()
         else set()
     )
     hook_count = count_py_files(root / "hooks")
-    src_count = count_src_modules(root / "src")
+    src_count = count_py_files(root / "src", exclude={"__init__.py"})
 
     # --- Check 1: README component counts ---
-    readme_counts = extract_readme_counts(readme)
-
-    expected = {
-        "skills": len(skill_dirs),
-        "agents": len(agent_files),
-        "hooks": hook_count,
-        "core library": src_count,
-    }
-
-    for label, actual in expected.items():
-        documented = readme_counts.get(label)
-        if documented is not None and documented != actual:
-            errors.append(
-                f"README.md Components table: {label} says {documented}, actual is {actual}"
-            )
+    _check_counts(
+        errors,
+        "README.md Components table",
+        extract_readme_counts(readme),
+        {
+            "skills": len(skill_dirs),
+            "agents": len(agent_files),
+            "hooks": hook_count,
+            "core library": src_count,
+        },
+    )
 
     # --- Check 2: CLAUDE.md counts ---
-    claude_counts = extract_claude_md_counts(claude_md)
-
-    claude_expected = {
-        "src": src_count,
-        "hooks": hook_count,
-        "skills": len(skill_dirs),
-        "agents": len(agent_files),
-    }
-
-    for label, actual in claude_expected.items():
-        documented = claude_counts.get(label)
-        if documented is not None and documented != actual:
-            errors.append(f"CLAUDE.md: {label} says {documented}, actual is {actual}")
+    _check_counts(
+        errors,
+        "CLAUDE.md",
+        extract_claude_md_counts(claude_md),
+        {
+            "src": src_count,
+            "hooks": hook_count,
+            "skills": len(skill_dirs),
+            "agents": len(agent_files),
+        },
+    )
 
     # --- Check 3: README installation hook count ---
     install_hook_count = extract_readme_install_hook_count(readme)
@@ -192,33 +186,30 @@ def main() -> int:
 
     # --- Check 4: Every skill dir has a README table entry ---
     readme_skills = extract_readme_skill_names(readme)
-    # 'do' is a command, not listed in the skill table
-    skill_dirs_for_table = skill_dirs - {"do"}
+    # 'do' is the router entry point, not listed in the skill table
+    skill_dirs_for_docs = skill_dirs - {"do"}
 
-    missing_from_readme = skill_dirs_for_table - readme_skills
+    missing_from_readme = skill_dirs_for_docs - readme_skills
     if missing_from_readme:
         errors.append(
             f"README.md skill table missing entries for: {', '.join(sorted(missing_from_readme))}"
         )
 
-    extra_in_readme = readme_skills - skill_dirs_for_table
+    extra_in_readme = readme_skills - skill_dirs_for_docs
     if extra_in_readme:
         extras = ", ".join(sorted(extra_in_readme))
         errors.append(f"README.md skill table has entries with no skill directory: {extras}")
 
     # --- Check 5: Every skill dir has a docs/commands.md section ---
     commands_sections = extract_commands_md_sections(commands_md)
-    # 'do' and 'loop' have their own docs, not required in commands.md
-    # Actually 'loop' IS in commands.md, and 'do' is the entry point section
-    skill_dirs_for_commands = skill_dirs - {"do"}
 
-    missing_from_commands = skill_dirs_for_commands - commands_sections
+    missing_from_commands = skill_dirs_for_docs - commands_sections
     if missing_from_commands:
         errors.append(
             f"docs/commands.md missing sections for: {', '.join(sorted(missing_from_commands))}"
         )
 
-    extra_in_commands = commands_sections - skill_dirs_for_commands
+    extra_in_commands = commands_sections - skill_dirs_for_docs
     if extra_in_commands:
         extras = ", ".join(sorted(extra_in_commands))
         errors.append(f"docs/commands.md has sections with no skill directory: {extras}")
