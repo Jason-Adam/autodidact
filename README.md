@@ -135,7 +135,7 @@ Everything goes through `/do` -- the cost-ascending router resolves intent and d
 uv run python3 -m pytest tests/ -v
 ```
 
-510 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
+522 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, session mining, and doc verification.
 
 ## Design principles
 
