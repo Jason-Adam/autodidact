@@ -34,6 +34,8 @@ graph TD
     DO --> create_pr["create-pr"]
     DO --> handoff
     DO --> sync_thoughts["sync-thoughts"]
+    DO --> debug
+    DO --> tdd
 
     run --> LOOP["loop — autonomous driver<br/>Wraps run, campaign, or fleet<br/>Exit detection + circuit breaker"]
     campaign --> LOOP
@@ -45,9 +47,9 @@ graph TD
 | Layer | Count | Description |
 |-------|-------|-------------|
 | **Core library** | 22 modules | `src/` — db, router, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
-| **Hooks** | 9 | Python scripts on Claude Code lifecycle events (8 lifecycle hooks + shared constants) |
-| **Skills** | 16 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
-| **Agents** | 12 | Specialized personas: interviewer, fleet-worker, quality-scorer, python-engineer, code-reviewer, code-simplifier, security-reviewer, and 5 research agents |
+| **Hooks** | 10 | Python scripts on Claude Code lifecycle events (9 lifecycle hooks + shared constants) |
+| **Skills** | 18 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
+| **Agents** | 13 | Specialized personas: interviewer, fleet-worker, quality-scorer, python-engineer, code-reviewer, code-simplifier, security-reviewer, test-engineer, and 5 research agents |
 | **Commands** | 1 | Single `/do` entry point — routes to skills via cost-ascending classifier |
 
 ## Prerequisites
@@ -117,6 +119,8 @@ Everything goes through `/do` -- the cost-ascending router resolves intent and d
 | research | Parallel codebase research with persisted findings | [skill ref](docs/commands.md#research----standalone-codebase-research) |
 | handoff | Compact session transfer document | [skill ref](docs/commands.md#handoff----session-transfer) |
 | sync-thoughts | Sync docs to ~/.planning/ for cross-project access | [skill ref](docs/commands.md#sync-thoughts----cross-project-sync) |
+| debug | Structured debugging with root cause isolation and regression guards | [skill ref](docs/commands.md#debug----structured-debugging) |
+| tdd | Test-driven development -- RED/GREEN/REFACTOR cycle | [skill ref](docs/commands.md#tdd----test-driven-development) |
 
 ## Deep dives
 
@@ -131,7 +135,7 @@ Everything goes through `/do` -- the cost-ascending router resolves intent and d
 uv run python3 -m pytest tests/ -v
 ```
 
-460 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
+510 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, and session mining.
 
 ## Design principles
 

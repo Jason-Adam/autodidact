@@ -140,3 +140,19 @@ Creates a compact session transfer document (<150 words) capturing decisions, op
 ```
 
 Copies research and plan documents to `~/.planning/` for cross-project access. Local `.planning/` files are always preserved.
+
+## debug -- structured debugging
+
+```
+/do debug the auth middleware returns 403 for valid tokens
+```
+
+Structured debugging harness that enforces Stop-the-Line discipline: preserve state, reproduce the failure, isolate the root cause, fix only the root cause, then guard with a regression test. Uses a layer decision tree and git bisect for regressions. Records error-fix pairs to the learning DB so future sessions skip the investigation.
+
+## tdd -- test-driven development
+
+```
+/do tdd add input validation to the signup endpoint
+```
+
+Test-driven development harness that enforces the RED/GREEN/REFACTOR cycle. Detects the test framework, writes failing tests first, drives implementation to passing, then refactors. Includes a Prove-It variant for bug fixes (reproduce the bug as a failing test before fixing). Records test patterns to the learning DB.
