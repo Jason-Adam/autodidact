@@ -49,7 +49,7 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 
    **IMPORTANT**: For autodidact-installed skills, always use the `autodidact-` prefix to ensure autodidact skills are invoked, not project-scoped alternatives. Exceptions: `direct` and `batch` (built-in routes, not `autodidact-*` skills).
 
-   **NEVER use Claude's built-in plan mode** (EnterPlanMode) when the user asks to "make a plan", "plan out", "create a plan", or similar. Always route to `autodidact-plan` instead. The built-in plan mode is a Claude Code feature for interactive plan approval — it is NOT the autodidact planning pipeline. Any request involving planning, design, strategy, or implementation approach must go to `autodidact-plan`.
+   **NEVER use Claude's built-in plan mode** (EnterPlanMode) for planning requests. The built-in plan mode is for interactive plan approval — it is NOT the autodidact planning pipeline. Any request involving planning, design, strategy, or implementation approach must route to `autodidact-plan`.
 
 3. **For `direct` classification**: Just do the task. No orchestration overhead.
 
