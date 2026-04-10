@@ -71,6 +71,12 @@ _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?interview\b", "plan"),  # consolidated into /plan (Clarify phase)
     (r"^/?(do\s+)?research\b", "research"),
     (r"^/?(do\s+)?plan\b", "plan"),
+    (r"^/?(do\s+)?make\s+a\s+plan\b", "plan"),
+    (r"^/?(do\s+)?create\s+a\s+plan\b", "plan"),
+    (r"^/?(do\s+)?write\s+a\s+plan\b", "plan"),
+    (r"^/?(do\s+)?build\s+a\s+plan\b", "plan"),
+    (r"^/?(do\s+)?draft\s+a\s+plan\b", "plan"),
+    (r"^/?(do\s+)?plan\s+(for|how|out)\b", "plan"),
     (r"^/?(do\s+)?fleet\b", "fleet"),
     (r"^/do\s+run\b", "run"),  # requires /do prefix to avoid matching "run the tests"
     (r"^/?run$", "run"),  # bare "run" with no arguments
@@ -320,6 +326,14 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
     ],
     "plan": [
         ("plan", 0.5),
+        ("make a plan", 0.7),
+        ("create a plan", 0.7),
+        ("write a plan", 0.7),
+        ("build a plan", 0.7),
+        ("draft a plan", 0.7),
+        ("plan out", 0.6),
+        ("plan for", 0.6),
+        ("plan how", 0.6),
         ("design", 0.3),
         ("approach", 0.3),
         ("strategy", 0.3),
