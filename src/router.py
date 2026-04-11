@@ -70,6 +70,7 @@ SKILL_MODEL_MAP: dict[str, str] = {
 _DIRECT_PATTERNS: list[tuple[str, str]] = [
     (r"^/?(do\s+)?interview\b", "plan"),  # consolidated into /plan (Clarify phase)
     (r"^/?(do\s+)?research\b", "research"),
+    (r"^/?(do\s+)?(make|create|write|build|draft)\s+a\s+plan\b", "plan"),
     (r"^/?(do\s+)?plan\b", "plan"),
     (r"^/?(do\s+)?fleet\b", "fleet"),
     (r"^/do\s+run\b", "run"),  # requires /do prefix to avoid matching "run the tests"
@@ -319,6 +320,7 @@ _KEYWORD_SCORES: dict[str, list[tuple[str, float]]] = {
         ("deep dive", 0.5),
     ],
     "plan": [
+        ("a plan", 0.7),  # catches "make/create/write a plan" mid-sentence
         ("plan", 0.5),
         ("design", 0.3),
         ("approach", 0.3),

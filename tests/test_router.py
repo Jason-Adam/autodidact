@@ -32,6 +32,26 @@ class TestTier0PatternMatch(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 0)
 
+    def test_make_a_plan_routes_to_plan(self) -> None:
+        r = classify("make a plan for adding auth")
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertEqual(r.tier, 0)
+
+    def test_do_create_a_plan_routes_to_plan(self) -> None:
+        r = classify("/do create a plan for the API")
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertEqual(r.tier, 0)
+
+    def test_draft_a_plan_routes_to_plan(self) -> None:
+        r = classify("draft a plan for refactoring")
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertEqual(r.tier, 0)
+
+    def test_bare_plan_routes_to_plan(self) -> None:
+        r = classify("plan the migration")
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertEqual(r.tier, 0)
+
     def test_research_routes_to_research(self) -> None:
         r = classify("/do research")
         self.assertEqual(r.skill, "autodidact-research")
@@ -214,6 +234,12 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
 
     def test_plan_routes_to_plan(self) -> None:
         r = classify("design an implementation plan for the auth feature")
+        self.assertEqual(r.skill, "autodidact-plan")
+        self.assertEqual(r.tier, 2)
+
+    def test_mid_sentence_plan_routes_to_plan(self) -> None:
+        """'I need a plan for X' should hit Tier 2 keywords, not fall to Tier 3."""
+        r = classify("I need a plan for the new auth system")
         self.assertEqual(r.skill, "autodidact-plan")
         self.assertEqual(r.tier, 2)
 
