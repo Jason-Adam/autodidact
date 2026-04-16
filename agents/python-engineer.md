@@ -1,5 +1,5 @@
 ---
-name: python-engineer
+name: autodidact-python-engineer
 description: |
   Python implementation specialist. Use for implementation tasks requiring
   idiomatic Python, proper typing, pytest patterns, and awareness of ruff/mypy.

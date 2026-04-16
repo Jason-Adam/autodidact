@@ -1,5 +1,5 @@
 ---
-name: security-reviewer
+name: autodidact-security-reviewer
 description: |
   Lightweight security review focused on OWASP top 10, injection vectors,
   auth/authz gaps, secrets exposure, and input validation at boundaries.

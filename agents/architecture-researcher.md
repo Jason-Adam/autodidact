@@ -1,5 +1,5 @@
 ---
-name: architecture-researcher
+name: autodidact-architecture-researcher
 description: |
   Map system architecture — layers, service boundaries, dependency graphs,
   route mappings, and how components connect across layers. Use when you

@@ -88,7 +88,7 @@ User-taught knowledge starts at 0.7 confidence and is injected into future sessi
 /do polish src/db.py    # polish specific files
 ```
 
-Runs three agents in parallel (code-reviewer, security-reviewer, code-simplifier), deduplicates findings, auto-fixes issues, and records quality scores to the learning DB.
+Runs three agents in parallel (autodidact-code-reviewer, autodidact-security-reviewer, autodidact-code-simplifier), deduplicates findings, auto-fixes issues, and records quality scores to the learning DB.
 
 ## forget -- decay learnings
 

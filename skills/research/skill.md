@@ -46,11 +46,11 @@ Using the clarified understanding from Step 2:
 
 Launch analysis agents in parallel using the Agent tool. Each agent gets ONE focused question:
 
-- **Code understanding** → `codebase-analyzer` — trace data flow, explain implementations, document behavior with file:line references
-- **File location** → `codebase-locator` — find files, directories, and components relevant to a feature or task
-- **Pattern discovery** → `pattern-finder` — find similar implementations, usage examples, or existing patterns
-- **Architecture mapping** → `architecture-researcher` — map layers, service boundaries, dependency graphs, route mappings
-- **External/current info** → `web-researcher` — research modern information, current docs, recent releases
+- **Code understanding** → `autodidact-codebase-analyzer` — trace data flow, explain implementations, document behavior with file:line references
+- **File location** → `autodidact-codebase-locator` — find files, directories, and components relevant to a feature or task
+- **Pattern discovery** → `autodidact-pattern-finder` — find similar implementations, usage examples, or existing patterns
+- **Architecture mapping** → `autodidact-architecture-researcher` — map layers, service boundaries, dependency graphs, route mappings
+- **External/current info** → `autodidact-web-researcher` — research modern information, current docs, recent releases
 
 Guidelines for sub-agent prompts:
 - One focused question per agent

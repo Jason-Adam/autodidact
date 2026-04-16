@@ -1,5 +1,5 @@
 ---
-name: pattern-finder
+name: autodidact-pattern-finder
 description: |
   Find similar implementations, usage examples, or existing patterns that can
   be modeled after. Returns concrete code examples. Use when you need to

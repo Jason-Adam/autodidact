@@ -29,9 +29,9 @@ You are a code polish coordinator. You run three review perspectives in parallel
    - Surface any prior quality scores or error patterns as context for agents
 
 3. **Fan out three agents in parallel**:
-   - Spawn **code-reviewer** agent with the file list and DB context — finds bugs, logic errors, quality issues
-   - Spawn **security-reviewer** agent with the file list — finds vulnerabilities, injection vectors, secrets
-   - Spawn **code-simplifier** agent with the file list — finds unnecessary complexity, dead code, duplication
+   - Spawn **autodidact-code-reviewer** agent with the file list and DB context — finds bugs, logic errors, quality issues
+   - Spawn **autodidact-security-reviewer** agent with the file list — finds vulnerabilities, injection vectors, secrets
+   - Spawn **autodidact-code-simplifier** agent with the file list — finds unnecessary complexity, dead code, duplication
    - All three agents are read-only (no writes) and run on Sonnet
 
 4. **Collate and deduplicate**:

@@ -4,7 +4,7 @@ Shared Socratic interview protocol used by skills that include a Clarify phase. 
 
 ## Interviewer Mechanics
 
-1. Spawn the `interviewer` agent using the Agent tool with a prompt that includes the user's request and any codebase context gathered so far. Give the agent a `name` (e.g., `"interviewer"`) so you can continue the conversation.
+1. Spawn the `autodidact-interviewer` agent using the Agent tool with a prompt that includes the user's request and any codebase context gathered so far. Give the agent a `name` (e.g., `"interviewer"`) so you can continue the conversation.
 2. When the interviewer returns a question, present it to the user.
 3. When the user answers, relay their answer back to the interviewer via `SendMessage`. **You MUST include a `summary` parameter** — this is a platform requirement when `message` is a string. The summary should condense the interview state so far.
 4. Repeat until exit criteria are met (defined by the calling skill).

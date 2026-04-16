@@ -49,7 +49,7 @@ graph TD
 | **Core library** | 22 modules | `src/` — db, router, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
 | **Hooks** | 10 | Python scripts on Claude Code lifecycle events (9 lifecycle hooks + shared constants) |
 | **Skills** | 18 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
-| **Agents** | 13 | Specialized personas: interviewer, fleet-worker, quality-scorer, python-engineer, code-reviewer, code-simplifier, security-reviewer, test-engineer, and 5 research agents |
+| **Agents** | 13 | Specialized personas: autodidact-interviewer, autodidact-fleet-worker, autodidact-quality-scorer, autodidact-python-engineer, autodidact-code-reviewer, autodidact-code-simplifier, autodidact-security-reviewer, autodidact-test-engineer, and 5 research agents |
 | **Commands** | 1 | Single `/do` entry point — routes to skills via cost-ascending classifier |
 
 ## Prerequisites
