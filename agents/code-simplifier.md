@@ -1,5 +1,5 @@
 ---
-name: code-simplifier
+name: autodidact-code-simplifier
 description: |
   Reviews code for unnecessary complexity, dead code, missed reuse opportunities,
   and clarity improvements. Focuses on recently changed code unless directed otherwise.

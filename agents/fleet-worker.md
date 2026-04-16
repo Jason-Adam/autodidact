@@ -1,5 +1,5 @@
 ---
-name: fleet-worker
+name: autodidact-fleet-worker
 description: |
   Worktree-isolated worker for fleet parallel execution. Executes a single
   task within its own git worktree and produces a discovery brief on completion.

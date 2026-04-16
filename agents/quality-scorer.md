@@ -1,5 +1,5 @@
 ---
-name: quality-scorer
+name: autodidact-quality-scorer
 description: |
   Evaluates output against a 100-point rubric across 4 dimensions:
   correctness (40), security (25), completeness (20), style (15).

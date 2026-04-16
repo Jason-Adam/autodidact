@@ -16,7 +16,7 @@ You are a TDD harness. You enforce the RED/GREEN/REFACTOR cycle, write tests bef
   - `package.json` (with jest/vitest config) -> jest/vitest
   - `go.mod` -> go test
 - Determine scope: user-specified behavior, file, or function
-- If scope is broad (multiple files or functions), spawn **test-engineer** agent for coverage gap analysis before writing tests
+- If scope is broad (multiple files or functions), spawn **autodidact-test-engineer** agent for coverage gap analysis before writing tests
 
 ## Protocol
 
@@ -26,7 +26,7 @@ You are a TDD harness. You enforce the RED/GREEN/REFACTOR cycle, write tests bef
    - Write a test that describes the desired behavior
    - Test must fail before any implementation change
    - Run test suite, confirm the new test is the only failure (or the expected one)
-   - If scope is broad, get coverage analysis from test-engineer agent first
+   - If scope is broad, get coverage analysis from autodidact-test-engineer agent first
 
 2. **GREEN — Minimum code to pass**:
    - Write the simplest code that makes the test pass
@@ -59,7 +59,7 @@ Use this variant when fixing a reported bug:
 ### Coverage Analysis (Broad Scope)
 
 When the scope covers multiple files or functions:
-- Spawn **test-engineer** agent with the target file list
+- Spawn **autodidact-test-engineer** agent with the target file list
 - Wait for coverage gap analysis (current gaps, recommended tests, priority tiers)
 - Write tests starting from highest-priority gaps
 - Continue with standard RED/GREEN/REFACTOR per test

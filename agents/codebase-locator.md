@@ -1,5 +1,5 @@
 ---
-name: codebase-locator
+name: autodidact-codebase-locator
 description: |
   Find files, directories, and components relevant to a feature or task.
   A "super grep/glob" that understands natural language descriptions.

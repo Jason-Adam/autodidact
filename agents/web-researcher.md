@@ -1,5 +1,5 @@
 ---
-name: web-researcher
+name: autodidact-web-researcher
 description: |
   Research the web for modern information beyond training data. Use when
   you need current documentation, recent releases, or answers that require

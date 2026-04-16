@@ -41,11 +41,11 @@ Follow the shared interviewer mechanics in `templates/clarify_protocol.md`.
 When entering this phase:
 1. Decompose the research into 2-4 focused questions
 2. Spawn analysis agents in parallel using the Agent tool:
-   - Code understanding → `codebase-analyzer`
-   - File location → `codebase-locator`
-   - Pattern discovery → `pattern-finder`
-   - Architecture mapping → `architecture-researcher`
-   - External/current info → `web-researcher`
+   - Code understanding → `autodidact-codebase-analyzer`
+   - File location → `autodidact-codebase-locator`
+   - Pattern discovery → `autodidact-pattern-finder`
+   - Architecture mapping → `autodidact-architecture-researcher`
+   - External/current info → `autodidact-web-researcher`
 3. Each agent gets ONE focused question and returns structured findings
 4. Collate findings — note key files, patterns, and conventions
 5. Record discoveries in the learning DB

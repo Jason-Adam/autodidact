@@ -1,5 +1,5 @@
 ---
-name: code-reviewer
+name: autodidact-code-reviewer
 description: |
   Review code for bugs, logic errors, security vulnerabilities, and quality
   issues. Uses confidence-based filtering to report only high-priority issues.

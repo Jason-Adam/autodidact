@@ -81,8 +81,8 @@ print(f'Worktree: {info.path}, Branch: {info.branch}')
 
 ### 3. Dispatch Workers
 
-Spawn one `fleet-worker` agent per worktree using the Agent tool:
-- Set `subagent_type` to `fleet-worker`
+Spawn one `autodidact-fleet-worker` agent per worktree using the Agent tool:
+- Set `subagent_type` to `autodidact-fleet-worker`
 - Set `isolation` to `worktree` if available, or pass the worktree path
 - Include: task description, wave number, discovery briefs from previous waves
 - Each worker operates independently in its own worktree

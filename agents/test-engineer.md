@@ -1,5 +1,5 @@
 ---
-name: test-engineer
+name: autodidact-test-engineer
 description: |
   QA coverage analyst. Examines source files to identify test coverage gaps,
   categorize uncovered scenarios by priority, and recommend specific tests.

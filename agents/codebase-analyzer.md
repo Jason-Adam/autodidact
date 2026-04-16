@@ -1,5 +1,5 @@
 ---
-name: codebase-analyzer
+name: autodidact-codebase-analyzer
 description: |
   Deep-dive code analysis agent. Use when you need to understand how specific
   code works — trace data flow, explain implementations, document behavior.

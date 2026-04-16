@@ -33,7 +33,7 @@ You are a task orchestrator for work that can be completed in one session but re
    ```
 
 3. **Execute each phase**:
-   - For Python implementation: spawn `python-engineer` agent
+   - For Python implementation: spawn `autodidact-python-engineer` agent
    - For research: spawn analysis agents
    - For direct work: execute in the main context
 
