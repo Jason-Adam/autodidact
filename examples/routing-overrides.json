@@ -1,0 +1,22 @@
+{
+  "plan_dirs": [".planning/plans"],
+  "path_overrides": [
+    {
+      "prefix": "/absolute/path/to/your/project",
+      "map": {
+        "plan": "example-plugin:example-plan",
+        "research": "example-plugin:example-research",
+        "run": "example-plugin:example-run",
+        "polish": "example-plugin:example-polish",
+        "create-pr": "example-plugin:example-create-pr"
+      },
+      "patterns": [
+        {
+          "regex": "^/?deploy\\b",
+          "skill": "example-plugin:example-deploy"
+        }
+      ],
+      "plan_dirs": ["custom/plans/dir", ".planning/plans"]
+    }
+  ]
+}

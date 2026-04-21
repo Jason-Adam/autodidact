@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+
+from src import overrides
 
 _MAX_PLAN_BYTES = 256 * 1024  # 256 KB cap for plan file reads
 
@@ -27,6 +30,9 @@ _IMPLEMENTATION_SKILLS: frozenset[str] = frozenset(
         "classify",  # Tier 3 signal: unclassified = assume implementation
     }
 )
+
+# Skills not eligible for the override-map rewrite (bare signal values).
+_UNMAPPABLE_SKILLS: frozenset[str] = frozenset({"direct", "batch", "classify"})
 
 
 @dataclass
@@ -455,7 +461,7 @@ def _tier2_keyword_heuristic(prompt: str) -> RouterResult | None:
 
 # Skills that are installed with the autodidact- prefix under ~/.claude/skills/.
 # The router returns fully-qualified names so Claude Code never confuses them
-# with project-scoped skills (e.g. crsdigital:create-plan vs autodidact-plan).
+# with project-scoped skills that share the same base name.
 _AUTODIDACT_SKILLS: frozenset[str] = frozenset(
     {
         "research",
@@ -485,7 +491,11 @@ def _qualify_skill(name: str) -> str:
 
     Signal values (``direct``, ``classify``, ``batch``) are returned bare.
     ``batch`` is a built-in Claude Code command, not an autodidact skill.
+    Names that already contain ``:`` are treated as plugin-namespaced and
+    returned unchanged.
     """
+    if ":" in name:
+        return name
     if name in _AUTODIDACT_SKILLS:
         return f"autodidact-{name}"
     return name
@@ -529,14 +539,24 @@ def _assign_model(result: RouterResult) -> RouterResult:
     return result
 
 
-def _has_plan_doc(cwd: str) -> bool:
-    """Check if a plan document exists in .planning/plans/."""
+def _has_plan_doc(cwd: str, plan_dirs: Iterable[str] | None = None) -> bool:
+    """Check if a plan document exists in any configured plan directory.
+
+    When ``plan_dirs`` is None, the active override config determines
+    which directories are searched (default: ``.planning/plans``).
+    """
     if not cwd:
         return False
-    plans_dir = Path(cwd) / ".planning" / "plans"
-    if not plans_dir.is_dir():
-        return False
-    return any(plans_dir.glob("*.md"))
+    if plan_dirs is None:
+        config = overrides.load_overrides()
+        matching = overrides.find_matching_prefix(cwd, config)
+        plan_dirs = overrides.effective_plan_dirs(matching, config)
+    cwd_path = Path(cwd)
+    for d in plan_dirs:
+        candidate = cwd_path / d
+        if candidate.is_dir() and any(candidate.glob("*.md")):
+            return True
+    return False
 
 
 def _apply_plan_gate(result: RouterResult, cwd: str) -> RouterResult:
@@ -566,6 +586,33 @@ def _apply_plan_gate(result: RouterResult, cwd: str) -> RouterResult:
     )
 
 
+def _apply_override_rewrite(
+    result: RouterResult, matching: overrides.PathOverride | None
+) -> RouterResult:
+    """Rewrite ``result.skill`` via the override map if applicable.
+
+    Pass-through cases:
+    - No matching override for the current working directory
+    - Bare signal values (``direct``, ``batch``, ``classify``)
+    - Skill name already contains ``:`` (already plugin-namespaced)
+    - No entry in the override map for the resolved base skill
+    """
+    if matching is None:
+        return result
+    if result.skill in _UNMAPPABLE_SKILLS:
+        return result
+    if ":" in result.skill:
+        return result
+    base = result.skill.removeprefix("autodidact-")
+    rewritten = overrides.rewrite_skill(base, matching)
+    if not rewritten:
+        return result
+    result.skill = rewritten
+    suffix = "+override_map"
+    result.reasoning = f"{result.reasoning}{suffix}" if result.reasoning else suffix.lstrip("+")
+    return _assign_model(result)
+
+
 def classify(prompt: str, cwd: str = "") -> RouterResult:
     """Cost-ascending classification. Tiers 0-2 are deterministic.
 
@@ -574,8 +621,28 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
 
     Skill names are returned with the ``autodidact-`` prefix so that
     Claude Code resolves them unambiguously, even when project-scoped
-    skills (e.g. ``crsdigital:create-plan``) are also available.
+    skills that share the same base name are installed. Users may
+    supply a path-scoped override config (see ``src/overrides.py``) to
+    rewrite these names to plugin-namespaced skills per working directory.
     """
+    # Path-scoped override config (may be empty). Used to short-circuit
+    # classification (pattern) and rewrite the final skill (map).
+    config = overrides.load_overrides()
+    matching = overrides.find_matching_prefix(cwd, config) if cwd else None
+
+    # Pattern short-circuit: user-supplied regex intercepts classification.
+    if matching is not None:
+        pattern_skill = overrides.match_pattern(prompt, matching)
+        if pattern_skill:
+            return _assign_model(
+                RouterResult(
+                    skill=pattern_skill,
+                    confidence=1.0,
+                    tier=0,
+                    reasoning="override_pattern",
+                )
+            )
+
     # Cost-ascending: run each tier until one matches.
     for result in (
         _tier0_pattern_match(prompt),
@@ -586,7 +653,8 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
         if result:
             result.skill = _qualify_skill(result.skill)
             result = _assign_model(result)
-            return _apply_plan_gate(result, cwd)
+            result = _apply_plan_gate(result, cwd)
+            return _apply_override_rewrite(result, matching)
 
     # Tier 3: Signal for LLM classification (no prefix needed)
     # Record the gap so we can improve deterministic tiers over time
@@ -600,7 +668,8 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
             reasoning="No deterministic match; LLM classification needed",
         )
     )
-    return _apply_plan_gate(result, cwd)
+    result = _apply_plan_gate(result, cwd)
+    return _apply_override_rewrite(result, matching)
 
 
 def _record_routing_gap(prompt: str, tiers_attempted: list[int | float]) -> None:

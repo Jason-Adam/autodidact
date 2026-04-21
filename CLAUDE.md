@@ -41,7 +41,7 @@ uv run ruff format src/ hooks/       # Format
 
 ## Docs
 
-See `docs/` for detailed architecture docs on commands, the learning DB, the loop, and planning.
+See `docs/` for detailed architecture docs on commands, the learning DB, the loop, and planning. For path-scoped routing overrides (redirecting `/do` to third-party plugin skills per project), see the "Routing overrides" section in `README.md`.
 
 ## Prerequisites
 
