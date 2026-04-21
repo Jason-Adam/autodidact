@@ -100,6 +100,56 @@ def test_invalid_schema_returns_empty_with_warning(tmp_path: Path) -> None:
     assert "invalid schema" in str(captured[0].message)
 
 
+def test_plan_dirs_traversal_segment_rejected(tmp_path: Path) -> None:
+    path = _write_config(
+        tmp_path,
+        {
+            "path_overrides": [
+                {
+                    "prefix": str(tmp_path),
+                    "plan_dirs": ["../../../etc"],
+                }
+            ]
+        },
+    )
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        cfg = load_overrides(path)
+    assert cfg == OverrideConfig()
+    assert any("'..'" in str(w.message) for w in captured)
+
+
+def test_plan_dirs_absolute_path_rejected(tmp_path: Path) -> None:
+    path = _write_config(
+        tmp_path,
+        {
+            "path_overrides": [
+                {
+                    "prefix": str(tmp_path),
+                    "plan_dirs": ["/etc"],
+                }
+            ]
+        },
+    )
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        cfg = load_overrides(path)
+    assert cfg == OverrideConfig()
+    assert any("relative" in str(w.message) for w in captured)
+
+
+def test_empty_map_value_rejected(tmp_path: Path) -> None:
+    path = _write_config(
+        tmp_path,
+        {"path_overrides": [{"prefix": str(tmp_path), "map": {"plan": ""}}]},
+    )
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        cfg = load_overrides(path)
+    assert cfg == OverrideConfig()
+    assert any("non-empty" in str(w.message) for w in captured)
+
+
 def test_env_var_overrides_default_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = _write_config(
         tmp_path,

@@ -559,12 +559,18 @@ def _has_plan_doc(cwd: str, plan_dirs: Iterable[str] | None = None) -> bool:
     return False
 
 
-def _apply_plan_gate(result: RouterResult, cwd: str) -> RouterResult:
+def _apply_plan_gate(
+    result: RouterResult,
+    cwd: str,
+    plan_dirs: Iterable[str] | None = None,
+) -> RouterResult:
     """Force-route to /plan if an implementation skill has no plan doc.
 
     Utility skills (gc, pr, polish, etc.) are exempt. Implementation
     skills (run, fleet, campaign, direct, classify) require a plan doc
-    in .planning/plans/ before they can execute.
+    in .planning/plans/ before they can execute. ``plan_dirs`` lets the
+    caller inject pre-computed directories to avoid re-loading the
+    override config per invocation.
     """
     # Strip prefix to get base skill name for classification
     base = result.skill.removeprefix("autodidact-")
@@ -572,7 +578,7 @@ def _apply_plan_gate(result: RouterResult, cwd: str) -> RouterResult:
     if base not in _IMPLEMENTATION_SKILLS:
         return result
 
-    if _has_plan_doc(cwd):
+    if _has_plan_doc(cwd, plan_dirs):
         return result
 
     # No plan doc — redirect to /plan.
@@ -608,8 +614,10 @@ def _apply_override_rewrite(
     if not rewritten:
         return result
     result.skill = rewritten
-    suffix = "+override_map"
-    result.reasoning = f"{result.reasoning}{suffix}" if result.reasoning else suffix.lstrip("+")
+    if result.reasoning:
+        result.reasoning = f"{result.reasoning}+override_map"
+    else:
+        result.reasoning = "override_map"
     return _assign_model(result)
 
 
@@ -625,10 +633,12 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
     supply a path-scoped override config (see ``src/overrides.py``) to
     rewrite these names to plugin-namespaced skills per working directory.
     """
-    # Path-scoped override config (may be empty). Used to short-circuit
-    # classification (pattern) and rewrite the final skill (map).
+    # Path-scoped override config (may be empty). Loaded once and
+    # threaded through the call stack so helper functions (plan gate,
+    # rewrite) reuse the same snapshot instead of re-reading the file.
     config = overrides.load_overrides()
     matching = overrides.find_matching_prefix(cwd, config) if cwd else None
+    plan_dirs = overrides.effective_plan_dirs(matching, config)
 
     # Pattern short-circuit: user-supplied regex intercepts classification.
     if matching is not None:
@@ -653,7 +663,7 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
         if result:
             result.skill = _qualify_skill(result.skill)
             result = _assign_model(result)
-            result = _apply_plan_gate(result, cwd)
+            result = _apply_plan_gate(result, cwd, plan_dirs)
             return _apply_override_rewrite(result, matching)
 
     # Tier 3: Signal for LLM classification (no prefix needed)
@@ -668,7 +678,7 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
             reasoning="No deterministic match; LLM classification needed",
         )
     )
-    result = _apply_plan_gate(result, cwd)
+    result = _apply_plan_gate(result, cwd, plan_dirs)
     return _apply_override_rewrite(result, matching)
 
 

@@ -67,6 +67,19 @@ def _resolve_config_path(path: Path | None) -> Path:
     return DEFAULT_CONFIG_PATH
 
 
+def _parse_plan_dirs(raw: object, field_name: str) -> tuple[str, ...]:
+    """Validate a list of plan-dir strings. Rejects traversal ('..') segments
+    so a malicious config cannot probe paths outside the cwd."""
+    if not isinstance(raw, list) or not all(isinstance(d, str) for d in raw):
+        raise ValueError(f"{field_name!r} must be a list of strings")
+    for d in raw:
+        if ".." in Path(d).parts or os.path.isabs(d):
+            raise ValueError(
+                f"{field_name!r} entry {d!r} must be relative and must not contain '..'"
+            )
+    return tuple(raw)
+
+
 def _parse_path_override(entry: dict[str, object]) -> PathOverride:
     prefix_raw = entry["prefix"]
     if not isinstance(prefix_raw, str) or not prefix_raw:
@@ -80,6 +93,8 @@ def _parse_path_override(entry: dict[str, object]) -> PathOverride:
     for k, v in mapping_raw.items():
         if not isinstance(k, str) or not isinstance(v, str):
             raise ValueError("'map' keys and values must be strings")
+        if not v:
+            raise ValueError(f"'map' value for {k!r} must be non-empty")
         mapping[k] = v
 
     patterns_raw = entry.get("patterns", [])
@@ -96,15 +111,9 @@ def _parse_path_override(entry: dict[str, object]) -> PathOverride:
         patterns.append(PatternRule(regex=re.compile(regex_str), skill=skill))
 
     plan_dirs_raw = entry.get("plan_dirs")
-    plan_dirs: tuple[str, ...] | None
-    if plan_dirs_raw is None:
-        plan_dirs = None
-    else:
-        if not isinstance(plan_dirs_raw, list) or not all(
-            isinstance(d, str) for d in plan_dirs_raw
-        ):
-            raise ValueError("'plan_dirs' must be a list of strings")
-        plan_dirs = tuple(plan_dirs_raw)
+    plan_dirs: tuple[str, ...] | None = (
+        None if plan_dirs_raw is None else _parse_plan_dirs(plan_dirs_raw, "plan_dirs")
+    )
 
     return PathOverride(
         prefix=prefix,
@@ -140,11 +149,7 @@ def load_overrides(path: Path | None = None) -> OverrideConfig:
         if global_plan_dirs_raw is None:
             global_plan_dirs = _DEFAULT_PLAN_DIRS
         else:
-            if not isinstance(global_plan_dirs_raw, list) or not all(
-                isinstance(d, str) for d in global_plan_dirs_raw
-            ):
-                raise ValueError("top-level 'plan_dirs' must be a list of strings")
-            global_plan_dirs = tuple(global_plan_dirs_raw)
+            global_plan_dirs = _parse_plan_dirs(global_plan_dirs_raw, "plan_dirs")
 
         path_overrides_raw = raw.get("path_overrides", [])
         if not isinstance(path_overrides_raw, list):

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from src import overrides, router
+from src import router
 
 
 def _write_plan(cwd: Path) -> None:
@@ -274,19 +274,3 @@ def test_plan_gate_redirect_is_itself_rewritten(
     assert result.skill == "someplugin:plan-skill"
     assert "Plan gate" in result.reasoning
     assert "override_map" in result.reasoning
-
-
-# ── coverage check ─────────────────────────────────────────────────────
-
-
-def test_overrides_module_coverage_sanity() -> None:
-    """Smoke-import every public symbol to keep them accessible."""
-    assert hasattr(overrides, "OverrideConfig")
-    assert hasattr(overrides, "PathOverride")
-    assert hasattr(overrides, "PatternRule")
-    assert hasattr(overrides, "load_overrides")
-    assert hasattr(overrides, "find_matching_prefix")
-    assert hasattr(overrides, "rewrite_skill")
-    assert hasattr(overrides, "match_pattern")
-    assert hasattr(overrides, "effective_plan_dirs")
-    assert hasattr(overrides, "DEFAULT_CONFIG_PATH")
