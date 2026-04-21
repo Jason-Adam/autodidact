@@ -46,7 +46,7 @@ graph TD
 
 | Layer | Count | Description |
 |-------|-------|-------------|
-| **Core library** | 22 modules | `src/` — db, router, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
+| **Core library** | 23 modules | `src/` — db, router, overrides, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
 | **Hooks** | 10 | Python scripts on Claude Code lifecycle events (9 lifecycle hooks + shared constants) |
 | **Skills** | 18 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
 | **Agents** | 13 | Specialized personas: autodidact-interviewer, autodidact-fleet-worker, autodidact-quality-scorer, autodidact-python-engineer, autodidact-code-reviewer, autodidact-code-simplifier, autodidact-security-reviewer, autodidact-test-engineer, and 5 research agents |
@@ -122,6 +122,36 @@ Everything goes through `/do` -- the cost-ascending router resolves intent and d
 | debug | Structured debugging with root cause isolation and regression guards | [skill ref](docs/commands.md#debug----structured-debugging) |
 | tdd | Test-driven development -- RED/GREEN/REFACTOR cycle | [skill ref](docs/commands.md#tdd----test-driven-development) |
 
+## Routing overrides
+
+`/do` resolves intent to autodidact skills by default. If you install third-party Claude Code plugins whose skills are namespaced (e.g. `some-plugin:plan`), you can redirect routing to them for specific working directories via an opt-in JSON config at `~/.claude/autodidact/routing-overrides.json` (override path with `$AUTODIDACT_OVERRIDES_PATH`).
+
+Absence of the config file preserves default behavior exactly — nothing is automatic.
+
+```json
+{
+  "plan_dirs": [".planning/plans"],
+  "path_overrides": [
+    {
+      "prefix": "/absolute/path/to/your/project",
+      "map": {"plan": "some-plugin:plan", "run": "some-plugin:run"},
+      "patterns": [{"regex": "^/?deploy\\b", "skill": "some-plugin:deploy"}],
+      "plan_dirs": ["custom/plans", ".planning/plans"]
+    }
+  ]
+}
+```
+
+Semantics:
+
+- **Longest-prefix match** — when multiple prefixes match `cwd`, the longest wins (so nested projects can refine their parents' config).
+- **`patterns`** short-circuit classification when the prompt matches a regex (first match wins, `re.search` semantics). Use for skills autodidact doesn't know natively.
+- **`map`** rewrites the final bare skill name (e.g. `plan` -> `some-plugin:plan`) *after* classification and plan-gate resolution. Bare signals (`direct`, `batch`, `classify`) are never mapped.
+- **`plan_dirs`** overrides which directories the plan gate scans for `*.md` files. Path-scoped `plan_dirs` win over the top-level default.
+- **Reload** — the config is read on every router invocation (fresh Python process per hook), so edits take effect on the next prompt.
+
+See `examples/routing-overrides.json` for a complete placeholder template.
+
 ## Deep dives
 
 - [Skill reference](docs/commands.md) — detailed usage and examples for every skill
@@ -135,7 +165,7 @@ Everything goes through `/do` -- the cost-ascending router resolves intent and d
 uv run python3 -m pytest tests/ -v
 ```
 
-527 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, session mining, and doc verification.
+568 tests covering the learning DB, confidence math, router classification, model routing, path-scoped routing overrides, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, session mining, and doc verification.
 
 ## Design principles
 
