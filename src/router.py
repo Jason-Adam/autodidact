@@ -641,10 +641,12 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
     plan_dirs = overrides.effective_plan_dirs(matching, config)
 
     # Pattern short-circuit: user-supplied regex intercepts classification.
+    # The result still flows through the plan gate so a pattern cannot
+    # bypass the safety check that implementation skills have a plan doc.
     if matching is not None:
         pattern_skill = overrides.match_pattern(prompt, matching)
         if pattern_skill:
-            return _assign_model(
+            pattern_result = _assign_model(
                 RouterResult(
                     skill=pattern_skill,
                     confidence=1.0,
@@ -652,6 +654,7 @@ def classify(prompt: str, cwd: str = "") -> RouterResult:
                     reasoning="override_pattern",
                 )
             )
+            return _apply_plan_gate(pattern_result, cwd, plan_dirs)
 
     # Cost-ascending: run each tier until one matches.
     for result in (

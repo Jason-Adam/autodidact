@@ -84,6 +84,8 @@ def _parse_path_override(entry: dict[str, object]) -> PathOverride:
     prefix_raw = entry["prefix"]
     if not isinstance(prefix_raw, str) or not prefix_raw:
         raise ValueError("'prefix' must be a non-empty string")
+    # realpath strips most trailing separators, but a filesystem root (e.g.
+    # "/" on POSIX) preserves it. _match_under_prefix handles that case.
     prefix = os.path.realpath(prefix_raw)
 
     mapping_raw = entry.get("map", {})
@@ -108,7 +110,11 @@ def _parse_path_override(entry: dict[str, object]) -> PathOverride:
         skill = rule["skill"]
         if not isinstance(regex_str, str) or not isinstance(skill, str):
             raise ValueError("pattern 'regex' and 'skill' must be strings")
-        patterns.append(PatternRule(regex=re.compile(regex_str), skill=skill))
+        try:
+            compiled = re.compile(regex_str)
+        except re.error as exc:
+            raise ValueError(f"invalid pattern regex {regex_str!r}: {exc}") from exc
+        patterns.append(PatternRule(regex=compiled, skill=skill))
 
     plan_dirs_raw = entry.get("plan_dirs")
     plan_dirs: tuple[str, ...] | None = (
@@ -165,11 +171,24 @@ def load_overrides(path: Path | None = None) -> OverrideConfig:
     )
 
 
+def _match_under_prefix(resolved: str, prefix: str) -> bool:
+    """True if ``resolved`` equals ``prefix`` or lies beneath it.
+
+    Handles filesystem roots (e.g. ``/``) where ``prefix + os.sep`` would
+    produce a double separator by stripping a single trailing separator
+    before the descendant check.
+    """
+    if resolved == prefix:
+        return True
+    boundary = prefix if prefix.endswith(os.sep) else prefix + os.sep
+    return resolved.startswith(boundary)
+
+
 def find_matching_prefix(cwd: str, config: OverrideConfig) -> PathOverride | None:
     """Return the longest-prefix match for ``cwd`` among ``config.path_overrides``.
 
     Matches are directory-aware: ``cwd`` matches ``prefix`` only when it
-    equals ``prefix`` or is under ``prefix + os.sep``.
+    equals ``prefix`` or is under it at a directory boundary.
     """
     if not cwd or not config.path_overrides:
         return None
@@ -178,7 +197,7 @@ def find_matching_prefix(cwd: str, config: OverrideConfig) -> PathOverride | Non
     best_len = -1
     for entry in config.path_overrides:
         prefix = entry.prefix
-        if (resolved == prefix or resolved.startswith(prefix + os.sep)) and len(prefix) > best_len:
+        if _match_under_prefix(resolved, prefix) and len(prefix) > best_len:
             best = entry
             best_len = len(prefix)
     return best

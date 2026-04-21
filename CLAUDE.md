@@ -6,7 +6,7 @@ Autodidact is a self-teaching AI harness for Claude Code. It is NOT a traditiona
 
 ## Architecture
 
-- **src/**: 22-module flat Python stdlib library — all modules at `src/*.py` (db, router, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph)
+- **src/**: 23-module flat Python stdlib library — all modules at `src/*.py` (db, router, overrides, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph)
 - **hooks/**: 10 Python files (9 lifecycle hooks + shared constants) that fire on Claude Code events
 - **skills/**: 18 markdown skill definitions (5-section format)
 - **agents/**: 13 agent personas (research, review, implementation, orchestration)

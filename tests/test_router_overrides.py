@@ -84,6 +84,32 @@ def test_tier2_skill_rewritten_when_path_matches(
     assert "override_map" in result.reasoning
 
 
+def test_pattern_respects_plan_gate_when_no_plan_doc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pattern mapping to a bare implementation skill must still hit the plan gate."""
+    cfg_dir = tmp_path / "cfg"
+    cfg_dir.mkdir()
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    _set_config(
+        monkeypatch,
+        cfg_dir,
+        {
+            "path_overrides": [
+                {
+                    "prefix": os.path.realpath(str(proj)),
+                    "patterns": [{"regex": r"^deploy", "skill": "run"}],
+                }
+            ]
+        },
+    )
+    # No plan doc in proj → plan gate should redirect "run" to autodidact-plan
+    result = router.classify("deploy now", cwd=str(proj))
+    assert result.skill == "autodidact-plan"
+    assert "Plan gate" in result.reasoning
+
+
 def test_pattern_short_circuits_tiers(
     cwd_with_plan: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -199,6 +225,10 @@ def test_qualify_skill_passes_unknown_bare_names_through() -> None:
 def test_has_plan_doc_uses_configured_plan_dirs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Hermetic: force no user config so developer's home config cannot
+    # accidentally satisfy the plan gate for this tmp_path.
+    monkeypatch.setenv("AUTODIDACT_OVERRIDES_PATH", "/nonexistent/nowhere.json")
+
     # No plan in default location
     assert router._has_plan_doc(str(tmp_path)) is False
 
@@ -208,7 +238,6 @@ def test_has_plan_doc_uses_configured_plan_dirs(
     (custom / "plan.md").write_text("# Plan\n")
 
     # Without config: still False (custom path not searched)
-    monkeypatch.setenv("AUTODIDACT_OVERRIDES_PATH", "/nonexistent/nowhere.json")
     assert router._has_plan_doc(str(tmp_path)) is False
 
     # With config pointing to the custom dir: True

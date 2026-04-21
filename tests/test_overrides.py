@@ -138,6 +138,36 @@ def test_plan_dirs_absolute_path_rejected(tmp_path: Path) -> None:
     assert any("relative" in str(w.message) for w in captured)
 
 
+def test_invalid_regex_rejected(tmp_path: Path) -> None:
+    path = _write_config(
+        tmp_path,
+        {
+            "path_overrides": [
+                {
+                    "prefix": str(tmp_path),
+                    "patterns": [{"regex": "(", "skill": "p:bad"}],
+                }
+            ]
+        },
+    )
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        cfg = load_overrides(path)
+    assert cfg == OverrideConfig()
+    assert any("invalid pattern regex" in str(w.message) for w in captured)
+
+
+def test_prefix_with_trailing_separator_matches_descendants(tmp_path: Path) -> None:
+    """A prefix ending in os.sep should still match descendant paths."""
+    nested = tmp_path / "a" / "b"
+    nested.mkdir(parents=True)
+    trailing = os.path.realpath(str(tmp_path)) + os.sep
+    override = PathOverride(prefix=trailing, map={"plan": "p:plan"})
+    cfg = OverrideConfig(path_overrides=(override,))
+    result = find_matching_prefix(str(nested), cfg)
+    assert result is not None
+
+
 def test_empty_map_value_rejected(tmp_path: Path) -> None:
     path = _write_config(
         tmp_path,

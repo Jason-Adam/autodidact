@@ -46,7 +46,7 @@ graph TD
 
 | Layer | Count | Description |
 |-------|-------|-------------|
-| **Core library** | 22 modules | `src/` — db, router, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
+| **Core library** | 23 modules | `src/` — db, router, overrides, confidence, graduate, interview, worktree, circuit_breaker, handoff, sync, documents, git_utils, response_analyzer, progress, exit_tracker, loop, experiment, convergence, fitness, rtk_integration, self_assessment, session_miner, task_graph |
 | **Hooks** | 10 | Python scripts on Claude Code lifecycle events (9 lifecycle hooks + shared constants) |
 | **Skills** | 18 | Markdown protocols with 5-section format (Identity, Orientation, Protocol, Quality Gates, Exit) |
 | **Agents** | 13 | Specialized personas: autodidact-interviewer, autodidact-fleet-worker, autodidact-quality-scorer, autodidact-python-engineer, autodidact-code-reviewer, autodidact-code-simplifier, autodidact-security-reviewer, autodidact-test-engineer, and 5 research agents |
@@ -165,7 +165,7 @@ See `examples/routing-overrides.json` for a complete placeholder template.
 uv run python3 -m pytest tests/ -v
 ```
 
-527 tests covering the learning DB, confidence math, router classification, model routing, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, session mining, and doc verification.
+568 tests covering the learning DB, confidence math, router classification, model routing, path-scoped routing overrides, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, session mining, and doc verification.
 
 ## Design principles
 
