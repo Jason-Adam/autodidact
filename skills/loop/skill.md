@@ -33,7 +33,7 @@ Parse user input:
 1. Run `select_loop_mode()` from `src/router.py`:
    ```bash
    python3 -c "
-   import sys; sys.path.insert(0, 'REPO_PATH')
+   import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.router import select_loop_mode
    print(select_loop_mode('CWD'))
    "
@@ -61,7 +61,9 @@ For all modes:
 1. Remove stale `.planning/loop.stop` if present
 2. Launch the loop as a background process:
    ```bash
-   nohup uv run --project REPO_PATH python3 -m src.loop {mode} --cwd {cwd} --max {max} > .planning/loop.log 2>&1 &
+   # uv needs the real repo dir (pyproject.toml); read it from the install marker rather than hardcoding.
+   REPO_DIR=$(python3 -c "import json, os; print(json.load(open(os.path.expanduser('~/.claude/autodidact/.installed')))['repo_dir'])")
+   nohup uv run --project "$REPO_DIR" python3 -m src.loop {mode} --cwd "{cwd}" --max "{max}" > .planning/loop.log 2>&1 &
    ```
 3. Confirm `.planning/loop.pid` was created
 4. Report: "Loop started (PID: {pid}, mode: {mode}, max: {max}). Use `/loop status` to check progress or `/loop stop` to halt."

@@ -165,7 +165,7 @@ See `examples/routing-overrides.json` for a complete placeholder template.
 uv run python3 -m pytest tests/ -v
 ```
 
-568 tests covering the learning DB, confidence math, router classification, model routing, path-scoped routing overrides, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, session mining, and doc verification.
+572 tests covering the learning DB, confidence math, router classification, model routing, path-scoped routing overrides, interview scoring, circuit breaker, response analysis, git progress detection, exit tracking, loop orchestration, fleet recovery, conflict detection, task graph partitioning, experiment state management, convergence detection, fitness expression evaluation, RTK integration, self-assessment, session mining, and doc verification.
 
 ## Design principles
 

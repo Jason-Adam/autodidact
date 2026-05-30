@@ -17,7 +17,7 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
 1. **Find matching learnings**: Search the DB for what the user wants to forget:
    ```bash
    python3 -c "
-   import sys, json; sys.path.insert(0, 'REPO_PATH')
+   import os, sys, json; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.db import LearningDB
    db = LearningDB()
    results = db.query_fts('SEARCH_TERMS')
@@ -33,7 +33,7 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
    - **Decay**: Reduce confidence by 0.3 (learning fades but isn't deleted):
      ```bash
      python3 -c "
-     import sys; sys.path.insert(0, 'REPO_PATH')
+     import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
      from src.db import LearningDB
      db = LearningDB()
      db.decay(learning_id=LEARNING_ID, amount=0.3)
@@ -43,7 +43,7 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
    - **Delete**: Remove entirely from the DB via direct SQL:
      ```bash
      python3 -c "
-     import sys; sys.path.insert(0, 'REPO_PATH')
+     import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
      from src.db import LearningDB
      db = LearningDB()
      db.conn.execute('DELETE FROM learnings WHERE id = ?', (LEARNING_ID,))

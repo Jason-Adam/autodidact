@@ -24,7 +24,7 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
 2. Record via the learning DB:
    ```bash
    python3 -c "
-   import sys; sys.path.insert(0, 'REPO_PATH')
+   import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.db import LearningDB
    db = LearningDB()
    db.record('TOPIC', 'KEY', 'VALUE', confidence=0.7, source='user_teach')
@@ -39,7 +39,7 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
 1. Call `mine_and_record()` from `src.session_miner` with the given project path and the active LearningDB:
    ```bash
    python3 -c "
-   import sys, json; sys.path.insert(0, 'REPO_PATH')
+   import os, sys, json; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.db import LearningDB
    from src.session_miner import mine_and_record
    db = LearningDB()
@@ -55,7 +55,7 @@ The learning database (`~/.claude/autodidact/learning.db`) stores all knowledge 
 1. Run FTS5 search against the learning DB:
    ```bash
    python3 -c "
-   import sys; sys.path.insert(0, 'REPO_PATH')
+   import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.db import LearningDB
    db = LearningDB()
    results = db.query_fts('SEARCH_TERMS')

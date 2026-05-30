@@ -58,7 +58,7 @@ The Python router (`src/router.py`) handles Tiers 0-2 automatically via the `use
 5. **Record the routing decision** in the learning DB for future pattern improvement:
    ```
    python3 -c "
-   import sys; sys.path.insert(0, 'REPO_PATH')
+   import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.db import LearningDB
    db = LearningDB()
    db.record('routing', 'USER_PROMPT_HASH', 'CLASSIFIED_SKILL', source='tier3_llm')
