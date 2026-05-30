@@ -6,7 +6,8 @@ Patches ~/.claude/settings.json to register hook commands.
 Initializes the learning database.
 
 Usage:
-    python3 install.py              # Install
+    python3 install.py              # Install (development: symlink source tree)
+    python3 install.py --release    # Install (release: source already copied here)
     python3 install.py --uninstall  # Remove
 """
 
@@ -208,8 +209,9 @@ def _unpatch_settings() -> None:
         print(f"  -> Unpatched {settings_path.relative_to(Path.home())}")
 
 
-def install() -> None:
-    print("Installing autodidact...")
+def install(*, release: bool = False) -> None:
+    mode = "release" if release else "development"
+    print(f"Installing autodidact ({mode})...")
 
     # Backup settings
     backup = _backup_settings()
@@ -217,7 +219,10 @@ def install() -> None:
         print(f"  -> Backed up settings to {backup.name}")
 
     # Symlink src/ -> ~/.claude/autodidact/
-    _symlink(REPO_DIR / "src", AUTODIDACT_DIR / "src")
+    # In release mode REPO_DIR == ~/.claude/autodidact, so src/ already lives
+    # there as real (extracted) files — nothing to symlink.
+    if not release:
+        _symlink(REPO_DIR / "src", AUTODIDACT_DIR / "src")
 
     # Symlink skills
     for skill in SKILL_DIRS:
@@ -249,6 +254,7 @@ def install() -> None:
 
     # Initialize learning DB
     sys.path.insert(0, str(REPO_DIR))
+    from src import __version__
     from src.db import LearningDB
 
     db = LearningDB()
@@ -260,7 +266,8 @@ def install() -> None:
     INSTALLED_MARKER.write_text(
         json.dumps(
             {
-                "version": "0.1.0",
+                "version": __version__,
+                "mode": mode,
                 "installed_at": datetime.now(UTC).isoformat(),
                 "repo_dir": str(REPO_DIR),
             },
@@ -312,4 +319,4 @@ if __name__ == "__main__":
     if "--uninstall" in sys.argv:
         uninstall()
     else:
-        install()
+        install(release="--release" in sys.argv)

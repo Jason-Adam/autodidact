@@ -68,20 +68,41 @@ graph TD
 
 ## Installation
 
+### Quick install (release)
+
+No checkout required. The bootstrap downloads a release tarball, copies it to `~/.claude/autodidact/`, and registers everything:
+
+```bash
+curl -fsSL https://github.com/Jason-Adam/autodidact/releases/latest/download/install.sh | bash
+```
+
+| Install command | Effect |
+|-----------------|--------|
+| `bash install.sh` | Install the latest release |
+| `bash install.sh --version v0.1.0` | Pin a specific tag |
+| `bash install.sh --update` | Re-fetch the latest release (preserves `learning.db` and other state) |
+| `bash install.sh --uninstall` | Remove symlinks/hooks (preserves `learning.db`) |
+
+Requires `uv`, `curl`, and `tar` (no `git` needed). Unlike the source install, this **copies** files instead of symlinking a checkout, so you are not tied to a maintained clone.
+
+### Install from source (development)
+
 ```bash
 git clone https://github.com/Jason-Adam/autodidact.git
 cd autodidact
 uv sync                       # install dependencies and create .venv
 uv run pre-commit install     # set up pre-commit hooks (ruff lint, ruff format, mypy)
-./install                     # install globally to ~/.claude/
+./install                     # install globally to ~/.claude/ (symlinks the checkout)
 ```
 
-This will:
-1. Symlink skills, agents, and commands into `~/.claude/`
+Both paths do the same thing:
+1. Wire skills, agents, and commands into `~/.claude/` (symlinks pointing at the source/install dir)
 2. Register 10 hooks in `~/.claude/settings.json` (hooks run via `uv run` so they have access to project dependencies)
 3. Initialize the learning database at `~/.claude/autodidact/learning.db`
 
-To uninstall:
+The difference: the source install symlinks your live checkout (edits take effect immediately), while the release install copies a fixed snapshot into `~/.claude/autodidact/`.
+
+To uninstall the source install:
 
 ```bash
 ./install --uninstall
