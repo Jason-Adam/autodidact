@@ -17,7 +17,7 @@ The learning database tracks all knowledge autodidact has accumulated. This skil
 1. **Gather data** from the learning DB:
    ```bash
    python3 -c "
-   import sys, json; sys.path.insert(0, 'REPO_PATH')
+   import os, sys, json; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.db import LearningDB
    db = LearningDB()
    stats = db.stats()

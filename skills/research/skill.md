@@ -107,14 +107,14 @@ Save the research document to `.planning/research/` using `src/documents.py`:
 
 ```bash
 python3 -c "
-import sys; sys.path.insert(0, 'REPO_PATH')
+import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
 from src.documents import save_document
 path = save_document(RESEARCH_CONTENT, 'research', 'TOPIC', 'CWD')
 print(f'Saved: {path}')
 "
 ```
 
-Replace `REPO_PATH` with the absolute path to the autodidact repo root (where `src/documents.py` lives), `CWD` with the root path of the project you're researching (NOT the autodidact repo), and `TOPIC` with a short description of the research topic.
+`~/.claude/autodidact` is the global install anchor — it contains a `src` symlink to the autodidact repo, so the import resolves from any project without hardcoding the repo path. Replace `CWD` with the root path of the project you're researching (NOT the autodidact repo), and `TOPIC` with a short description of the research topic.
 
 ### Step 8: Present and Offer Next Steps
 

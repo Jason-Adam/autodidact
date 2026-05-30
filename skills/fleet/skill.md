@@ -47,7 +47,7 @@ Run `WorktreeManager.validate_wave(tasks)` on your proposed task list before dis
 Use the dependency graph to compute optimal wave structure:
 ```bash
 python3 -c "
-import sys, json; sys.path.insert(0, 'REPO_PATH')
+import os, sys, json; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
 from src.worktree import WorktreeManager
 from pathlib import Path
 mgr = WorktreeManager(Path('CWD'))
@@ -61,7 +61,7 @@ for i, wave in enumerate(waves, 1):
 "
 ```
 
-In all code blocks in this skill, replace `REPO_PATH` with the absolute path to the autodidact repo root and `CWD` with the root path of the project you're running fleet on (NOT the autodidact repo).
+In all code blocks in this skill, `~/.claude/autodidact` is the global install anchor — it carries a `src` symlink to the autodidact repo, so `from src....` imports resolve from any project without hardcoding the repo path. Replace `CWD` with the root path of the project you're running fleet on (NOT the autodidact repo).
 
 Review the computed wave structure. Override only if the algorithm missed a semantic dependency not captured by file overlap or explicit depends_on.
 
@@ -70,7 +70,7 @@ Review the computed wave structure. Override only if the algorithm missed a sema
 For each task in the current wave:
 ```bash
 python3 -c "
-import sys; sys.path.insert(0, 'REPO_PATH')
+import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
 from src.worktree import WorktreeManager
 from pathlib import Path
 mgr = WorktreeManager(Path('CWD'))
@@ -100,7 +100,7 @@ After all waves complete, merge each worker back. `merge_worktree()` runs the me
 
 ```bash
 python3 -c "
-import sys; sys.path.insert(0, 'REPO_PATH')
+import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
 from src.worktree import WorktreeManager
 from pathlib import Path
 mgr = WorktreeManager(Path('CWD'))

@@ -17,7 +17,7 @@ You are a planning orchestrator. You take a vague or specific request and produc
 
 ## Protocol
 
-In all code blocks in this skill, replace `REPO_PATH` with the absolute path to the autodidact repo root (where `src/documents.py` lives), `CWD` with the root path of the project you're planning for (NOT the autodidact repo), and `TOPIC` with a short description.
+In all code blocks in this skill, `~/.claude/autodidact` is the global install anchor — it contains a `src` symlink to the autodidact repo, so `from src.documents import ...` resolves from any project without hardcoding the repo path. Replace `CWD` with the root path of the project you're planning for (NOT the autodidact repo), and `TOPIC` with a short description.
 
 ### Phase 1: Clarify (always runs)
 
@@ -52,7 +52,7 @@ When entering this phase:
 6. **Persist research document**: Save findings to `.planning/research/` using `src/documents.py`:
    ```bash
    python3 -c "
-   import sys; sys.path.insert(0, 'REPO_PATH')
+   import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.documents import save_document
    path = save_document(RESEARCH_CONTENT, 'research', 'TOPIC', 'CWD')
    print(f'Saved: {path}')
@@ -101,7 +101,7 @@ When entering this phase:
 4. **On approval**, persist the plan document:
    ```bash
    python3 -c "
-   import sys; sys.path.insert(0, 'REPO_PATH')
+   import os, sys; sys.path.insert(0, os.path.expanduser('~/.claude/autodidact'))
    from src.documents import save_document
    path = save_document(PLAN_CONTENT, 'plans', 'TOPIC', 'CWD')
    print(f'Saved: {path}')
