@@ -25,7 +25,9 @@ GitHub release with that tarball plus the standalone `install.sh`.
 
 - Release-based installation: a `curl ... | bash` one-liner that downloads a
   GitHub release tarball and installs autodidact without a checkout
-  (`install.sh` with `--version`, `--update`, and `--uninstall`).
+  (`install.sh` with `--version`, `--update`, and `--uninstall`). Downloads are
+  SHA-256 verified against the release's `sha256sums.txt` and validated against
+  path traversal before extraction.
 - `install.py --release` mode: installs from a copied source tree at
   `~/.claude/autodidact/` instead of symlinking a development checkout.
 - `release.yml` workflow: tag-triggered build that gates on tests, guards

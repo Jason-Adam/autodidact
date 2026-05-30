@@ -57,15 +57,39 @@ require() {
   command -v "$1" >/dev/null 2>&1 || err "$1 is required but was not found. $2"
 }
 
-# Resolve the "latest" release tag via the GitHub API.
+# Resolve the "latest" release tag via the GitHub API. Parse with python3
+# (already a hard prerequisite) rather than grep/sed, which can silently pick
+# the wrong field if the JSON is compacted or reordered.
 resolve_latest() {
   local tag
   tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-    | grep '"tag_name":' \
-    | head -n1 \
-    | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')"
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null)"
   [ -n "${tag}" ] || err "could not resolve the latest release tag from GitHub."
   printf '%s' "${tag}"
+}
+
+# Verify a downloaded asset against the release's sha256sums.txt.
+verify_checksum() {
+  local dir="$1" file="$2"
+  local sums="${dir}/sha256sums.txt"
+  [ -f "${sums}" ] || err "checksum file missing; cannot verify ${file}."
+
+  local expected
+  expected="$(awk -v f="${file}" '$2 == f {print $1}' "${sums}" | head -n1)"
+  [ -n "${expected}" ] || err "no checksum entry for ${file} in sha256sums.txt."
+
+  local actual
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "${dir}/${file}" | awk '{print $1}')"
+  elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "${dir}/${file}" | awk '{print $1}')"
+  else
+    err "neither sha256sum nor shasum found; cannot verify download integrity."
+  fi
+
+  [ "${expected}" = "${actual}" ] \
+    || err "checksum mismatch for ${file} (expected ${expected}, got ${actual})."
+  echo "Checksum verified: ${file}"
 }
 
 do_uninstall() {
@@ -76,6 +100,7 @@ do_uninstall() {
 do_install() {
   require curl "Install it from your package manager."
   require tar "Install it from your package manager."
+  require python3 "Install it from https://www.python.org/downloads/"
   require uv "Install it from https://docs.astral.sh/uv/getting-started/installation/"
 
   local tag="${VERSION}"
@@ -84,15 +109,26 @@ do_install() {
   fi
 
   local asset="autodidact-${tag}.tar.gz"
-  local url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
+  local base="https://github.com/${REPO}/releases/download/${tag}"
 
   local tmp
   tmp="$(mktemp -d)"
   trap 'rm -rf "${tmp}"' EXIT
 
   echo "Downloading ${asset} ..."
-  curl -fsSL "${url}" -o "${tmp}/${asset}" \
-    || err "download failed: ${url}"
+  curl -fsSL "${base}/${asset}" -o "${tmp}/${asset}" \
+    || err "download failed: ${base}/${asset}"
+  curl -fsSL "${base}/sha256sums.txt" -o "${tmp}/sha256sums.txt" \
+    || err "checksum download failed: ${base}/sha256sums.txt"
+
+  verify_checksum "${tmp}" "${asset}"
+
+  # Reject absolute paths or parent-dir traversal before extracting, so a
+  # tampered tarball cannot write outside INSTALL_DIR (portable across GNU/BSD
+  # tar, which lack a common --no-absolute-names flag).
+  if tar tzf "${tmp}/${asset}" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    err "refusing to extract: tarball contains absolute or parent-traversal paths."
+  fi
 
   # On update, clear stale code dirs (user state is untouched).
   if [ "${ACTION}" = "update" ]; then
@@ -106,6 +142,10 @@ do_install() {
   echo "Extracting to ${INSTALL_DIR} ..."
   mkdir -p "${INSTALL_DIR}"
   tar xzf "${tmp}/${asset}" -C "${INSTALL_DIR}" --strip-components=1
+
+  # exec replaces this process, so the EXIT trap will not fire — clean up now.
+  rm -rf "${tmp}"
+  trap - EXIT
 
   echo "Running install.py --release ..."
   exec uv run --project "${INSTALL_DIR}" python3 "${INSTALL_DIR}/install.py" --release

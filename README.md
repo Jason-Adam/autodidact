@@ -83,7 +83,7 @@ curl -fsSL https://github.com/Jason-Adam/autodidact/releases/latest/download/ins
 | `bash install.sh --update` | Re-fetch the latest release (preserves `learning.db` and other state) |
 | `bash install.sh --uninstall` | Remove symlinks/hooks (preserves `learning.db`) |
 
-Requires `uv`, `curl`, and `tar` (no `git` needed). Unlike the source install, this **copies** files instead of symlinking a checkout, so you are not tied to a maintained clone.
+Requires `uv`, `curl`, and `tar` (no `git` needed). The downloaded tarball is verified against the release's `sha256sums.txt` before extraction. Unlike the source install, this **copies** files instead of symlinking a checkout, so you are not tied to a maintained clone.
 
 ### Install from source (development)
 
