@@ -89,7 +89,6 @@
 
   {"prompt": "show me the token savings stats", "expected_skill": "learn_status"},
   {"prompt": "what are the token economics for this project", "expected_skill": "learn_status"},
-  {"prompt": "display the rtk savings dashboard", "expected_skill": "learn_status"},
   {"prompt": "show learning stats and knowledge inventory", "expected_skill": "learn_status"},
   {"prompt": "what are the confidence stats for learned patterns", "expected_skill": "learn_status"},
   {"prompt": "list graduation candidates from the learning db", "expected_skill": "learn_status"},

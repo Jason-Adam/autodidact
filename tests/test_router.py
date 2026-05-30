@@ -258,11 +258,6 @@ class TestTier2KeywordHeuristic(unittest.TestCase):
         self.assertEqual(r.skill, "autodidact-learn-status")
         self.assertEqual(r.tier, 2)
 
-    def test_rtk_routes_to_learn_status(self) -> None:
-        r = classify("rtk stats and learning stats")
-        self.assertEqual(r.skill, "autodidact-learn-status")
-        self.assertEqual(r.tier, 2)
-
     def test_commit_keyword_routes_to_gc(self) -> None:
         r = classify("commit these changes and stage everything")
         self.assertEqual(r.skill, "autodidact-gc")

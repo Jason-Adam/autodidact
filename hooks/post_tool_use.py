@@ -70,10 +70,7 @@ def _extract_observation(
     if not command:
         return None
 
-    # Unwrap RTK proxy to get the real command for filtering/tagging
     cmd_stripped = command.lstrip()
-    if cmd_stripped.startswith("rtk proxy "):
-        cmd_stripped = cmd_stripped[len("rtk proxy ") :].lstrip()
 
     # Skip noisy read-only commands
     for prefix in _SKIP_COMMAND_PREFIXES:
@@ -83,16 +80,16 @@ def _extract_observation(
     # Condense output
     condensed = " ".join(tool_output.split())[:_OBSERVATION_MAX_VALUE_LEN]
 
-    # Generate deterministic key from unwrapped command + output
+    # Generate deterministic key from command + output
     sig = hashlib.md5((cmd_stripped + condensed).encode(), usedforsecurity=False).hexdigest()[:12]
     key = f"obs_{sig}"
 
-    # Tags: tool name + first word of unwrapped command
+    # Tags: tool name + first word of command
     parts = cmd_stripped.split()
     first_word = parts[0] if parts else "unknown"
     tags = f"bash {first_word}"
 
-    # Value: unwrapped/normalized command + condensed result
+    # Value: normalized command + condensed result
     value = f"Command: {cmd_stripped[:100]}\nResult: {condensed[:200]}"
 
     return {"key": key, "value": value, "tags": tags}

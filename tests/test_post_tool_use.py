@@ -56,33 +56,6 @@ class TestExtractObservation(unittest.TestCase):
         )
         self.assertIsNone(result)
 
-    def test_rtk_command_captured(self) -> None:
-        result = _extract_observation(
-            "Bash",
-            {"command": "rtk git status"},
-            "On branch main " * 10,
-        )
-        self.assertIsNotNone(result)
-
-    def test_rtk_proxy_unwrapped(self) -> None:
-        result = _extract_observation(
-            "Bash",
-            {"command": "rtk proxy git log --oneline"},
-            "abc1234 Some commit message " * 5,
-        )
-        self.assertIsNotNone(result)
-        assert result is not None
-        self.assertIn("git", result["tags"])
-        self.assertNotIn("rtk proxy", result["value"])
-
-    def test_rtk_proxy_skip_still_applies(self) -> None:
-        result = _extract_observation(
-            "Bash",
-            {"command": "rtk proxy cat file.txt"},
-            "file contents here " * 5,
-        )
-        self.assertIsNone(result)
-
     def test_skip_pwd_command(self) -> None:
         result = _extract_observation(
             "Bash",
