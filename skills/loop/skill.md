@@ -63,7 +63,7 @@ For all modes:
    ```bash
    # uv needs the real repo dir (pyproject.toml); read it from the install marker rather than hardcoding.
    REPO_DIR=$(python3 -c "import json, os; print(json.load(open(os.path.expanduser('~/.claude/autodidact/.installed')))['repo_dir'])")
-   nohup uv run --project "$REPO_DIR" python3 -m src.loop {mode} --cwd {cwd} --max {max} > .planning/loop.log 2>&1 &
+   nohup uv run --project "$REPO_DIR" python3 -m src.loop {mode} --cwd "{cwd}" --max "{max}" > .planning/loop.log 2>&1 &
    ```
 3. Confirm `.planning/loop.pid` was created
 4. Report: "Loop started (PID: {pid}, mode: {mode}, max: {max}). Use `/loop status` to check progress or `/loop stop` to halt."

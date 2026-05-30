@@ -18,7 +18,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
+# Canonical form recommended in failure messages.
 ANCHOR = "os.path.expanduser('~/.claude/autodidact')"
+# Accept either quote style so a correct snippet isn't flagged on quoting alone.
+_ANCHOR_RE = re.compile(r"""os\.path\.expanduser\(\s*['"]~/\.claude/autodidact['"]\s*\)""")
 
 # Read each skill doc once; every check below scans the cached text.
 _SKILL_DOCS = {path: path.read_text() for path in sorted(SKILLS_DIR.glob("*/skill.md"))}
@@ -53,7 +56,9 @@ class TestNoRepoPathPlaceholder(unittest.TestCase):
     def test_sys_path_inserts_use_anchor(self) -> None:
         """Every sys.path.insert in a skill snippet must use the global anchor."""
         pattern = re.compile(r"sys\.path\.insert\(\s*0\s*,")
-        offenders = _scan_lines(lambda line: bool(pattern.search(line)) and ANCHOR not in line)
+        offenders = _scan_lines(
+            lambda line: bool(pattern.search(line)) and not _ANCHOR_RE.search(line)
+        )
         self.assertEqual(
             offenders,
             [],
