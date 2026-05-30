@@ -20,11 +20,6 @@ from src.confidence import INJECTION_MIN_CONFIDENCE
 from src.db import LearningDB
 from src.git_utils import resolve_main_repo
 from src.graduate import graduate_to_memory
-from src.rtk_integration import (
-    feed_discover_to_db,
-    get_rtk_savings_summary,
-    is_rtk_installed,
-)
 from src.session_miner import mine_and_record
 
 
@@ -101,32 +96,6 @@ def main() -> None:
                             messages.append(msg)
                 except Exception:
                     pass  # Graceful degradation -- don't block other hook behavior
-
-            # RTK token savings
-            if is_rtk_installed():
-                rtk_summary = get_rtk_savings_summary(project_path)
-                if rtk_summary:
-                    total_cmds = rtk_summary.get("total_commands", 0)
-                    saved = rtk_summary.get("tokens_saved", 0)
-                    pct = rtk_summary.get("savings_percent", 0)
-                    messages.append(
-                        f"RTK: {total_cmds} commands, {saved:,} tokens saved ({pct}%), last 7 days"
-                    )
-            else:
-                messages.append(
-                    "RTK saves 60-90% tokens on CLI output. "
-                    "Install: brew install patrickszmukowiak/tap/rtk"
-                )
-
-            # RTK discover -> learning DB (weekly)
-            rtk_marker = Path(db.db_path).parent / ".last_rtk_discover"
-            if _should_run_weekly(rtk_marker, today):
-                recorded = feed_discover_to_db(project_path, db)
-                if recorded > 0:
-                    messages.append(
-                        f"RTK discover: {recorded} optimization tips recorded to learning DB"
-                    )
-                _stamp_weekly(rtk_marker, today)
 
             # Session mining -> learning DB (weekly)
             mine_marker = Path(db.db_path).parent / ".last_session_mine"

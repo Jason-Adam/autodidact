@@ -34,11 +34,10 @@ The learning database tracks all knowledge autodidact has accumulated. This skil
    2. **Top Learnings**: Highest confidence items (topic, key, value, confidence)
    3. **Graduation Candidates**: Items ready to be promoted (confidence >= 0.9, observations >= 5)
    4. **Routing Gaps**: Recent unmatched prompts (if any)
-   5. **Token Economics**: When RTK is installed, show total commands, total saved tokens, avg savings %, estimated $ saved (from `rtk gain --daily`). When not installed: "Install RTK for token analytics"
 
 ## Quality Gates
 
-- [ ] All five sections are presented
+- [ ] All four sections are presented
 - [ ] Data is current (freshly queried, not cached)
 
 ## Exit Protocol
