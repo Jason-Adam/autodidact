@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@test"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run python3 -m pytest tests/ -v
+
+      - name: Version guard
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          PYPROJECT_VERSION="$(grep -E '^version = ' pyproject.toml | head -n1 | sed -E 's/^version = "([^"]+)"/\1/')"
+          INIT_VERSION="$(grep -E '^__version__' src/__init__.py | sed -E 's/.*"([^"]+)".*/\1/')"
+          echo "tag=${TAG} pyproject=${PYPROJECT_VERSION} __init__=${INIT_VERSION}"
+          if [ "${TAG}" != "v${PYPROJECT_VERSION}" ]; then
+            echo "::error::Tag ${TAG} does not match pyproject.toml version v${PYPROJECT_VERSION}"
+            exit 1
+          fi
+          if [ "${TAG}" != "v${INIT_VERSION}" ]; then
+            echo "::error::Tag ${TAG} does not match src/__init__.py version v${INIT_VERSION}"
+            exit 1
+          fi
+
+      - name: Build tarball
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          DIST="autodidact-${TAG}"
+          mkdir -p "build/${DIST}"
+          # Manifest of what ships in a release. The code-dir subset here must
+          # stay in sync with CODE_DIRS in install.sh (used for stale-file
+          # cleanup on --update).
+          cp -r src skills agents commands templates hooks \
+                pyproject.toml uv.lock install install.py \
+                "build/${DIST}/"
+          tar czf "autodidact-${TAG}.tar.gz" -C build "${DIST}"
+          sha256sum "autodidact-${TAG}.tar.gz" > sha256sums.txt
+          echo "Tarball contents:"
+          tar tzf "autodidact-${TAG}.tar.gz" | head -n 30
+          echo "Checksums:"
+          cat sha256sums.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --generate-notes \
+            "autodidact-${TAG}.tar.gz" \
+            sha256sums.txt \
+            install.sh

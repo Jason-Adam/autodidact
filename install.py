@@ -6,7 +6,8 @@ Patches ~/.claude/settings.json to register hook commands.
 Initializes the learning database.
 
 Usage:
-    python3 install.py              # Install
+    python3 install.py              # Install (development: symlink source tree)
+    python3 install.py --release    # Install (release: source already copied here)
     python3 install.py --uninstall  # Remove
 """
 
@@ -22,6 +23,11 @@ REPO_DIR = Path(__file__).resolve().parent
 CLAUDE_DIR = Path.home() / ".claude"
 AUTODIDACT_DIR = CLAUDE_DIR / "autodidact"
 INSTALLED_MARKER = AUTODIDACT_DIR / ".installed"
+
+# In --release mode the tarball is extracted to AUTODIDACT_DIR and this file
+# runs from there, so REPO_DIR resolves to AUTODIDACT_DIR. User state that must
+# survive an uninstall/update of a release install:
+_RELEASE_STATE = {"interviews", "routing-overrides.json", ".venv"}
 
 # Symlink mappings: (source_in_repo, target_in_claude, prefix)
 SKILL_DIRS = [
@@ -208,8 +214,9 @@ def _unpatch_settings() -> None:
         print(f"  -> Unpatched {settings_path.relative_to(Path.home())}")
 
 
-def install() -> None:
-    print("Installing autodidact...")
+def install(*, release: bool = False) -> None:
+    mode = "release" if release else "development"
+    print(f"Installing autodidact ({mode})...")
 
     # Backup settings
     backup = _backup_settings()
@@ -217,7 +224,10 @@ def install() -> None:
         print(f"  -> Backed up settings to {backup.name}")
 
     # Symlink src/ -> ~/.claude/autodidact/
-    _symlink(REPO_DIR / "src", AUTODIDACT_DIR / "src")
+    # In release mode REPO_DIR == ~/.claude/autodidact, so src/ already lives
+    # there as real (extracted) files — nothing to symlink.
+    if not release:
+        _symlink(REPO_DIR / "src", AUTODIDACT_DIR / "src")
 
     # Symlink skills
     for skill in SKILL_DIRS:
@@ -249,6 +259,7 @@ def install() -> None:
 
     # Initialize learning DB
     sys.path.insert(0, str(REPO_DIR))
+    from src import __version__
     from src.db import LearningDB
 
     db = LearningDB()
@@ -260,7 +271,8 @@ def install() -> None:
     INSTALLED_MARKER.write_text(
         json.dumps(
             {
-                "version": "0.1.0",
+                "version": __version__,
+                "mode": mode,
                 "installed_at": datetime.now(UTC).isoformat(),
                 "repo_dir": str(REPO_DIR),
             },
@@ -274,6 +286,15 @@ def install() -> None:
 
 def uninstall() -> None:
     print("Uninstalling autodidact...")
+
+    # Detect a release install (code copied into AUTODIDACT_DIR) before the
+    # marker is removed, so we can clean up the copied tree as well.
+    release_mode = False
+    if INSTALLED_MARKER.exists():
+        try:
+            release_mode = json.loads(INSTALLED_MARKER.read_text()).get("mode") == "release"
+        except (json.JSONDecodeError, OSError):
+            release_mode = False
 
     # Remove symlinks
     src_link = AUTODIDACT_DIR / "src"
@@ -305,6 +326,21 @@ def uninstall() -> None:
     if INSTALLED_MARKER.exists():
         INSTALLED_MARKER.unlink()
 
+    # Release installs copy the code tree into AUTODIDACT_DIR; remove it so
+    # uninstall is clean, preserving the learning DB and user state.
+    if release_mode and AUTODIDACT_DIR.is_dir():
+        for child in AUTODIDACT_DIR.iterdir():
+            if child.name in _RELEASE_STATE or child.name.startswith("learning.db"):
+                continue
+            try:
+                if child.is_dir() and not child.is_symlink():
+                    shutil.rmtree(child, ignore_errors=True)
+                else:
+                    child.unlink()
+            except OSError:
+                pass
+        print("  -> Removed copied release files (learning DB and user state preserved)")
+
     print("\nAutodidact uninstalled. Learning DB preserved at ~/.claude/autodidact/learning.db")
 
 
@@ -312,4 +348,4 @@ if __name__ == "__main__":
     if "--uninstall" in sys.argv:
         uninstall()
     else:
-        install()
+        install(release="--release" in sys.argv)
