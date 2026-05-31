@@ -58,7 +58,7 @@ jobs:
           # stay in sync with CODE_DIRS in install.sh (used for stale-file
           # cleanup on --update).
           cp -r src skills agents commands templates hooks \
-                pyproject.toml install install.py \
+                pyproject.toml uv.lock install install.py \
                 "build/${DIST}/"
           tar czf "autodidact-${TAG}.tar.gz" -C build "${DIST}"
           sha256sum "autodidact-${TAG}.tar.gz" > sha256sums.txt

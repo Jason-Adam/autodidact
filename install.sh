@@ -93,6 +93,7 @@ verify_checksum() {
 }
 
 do_uninstall() {
+  require python3 "Install it from https://www.python.org/downloads/"
   [ -f "${INSTALL_DIR}/install.py" ] || err "no autodidact install found at ${INSTALL_DIR}."
   exec python3 "${INSTALL_DIR}/install.py" --uninstall
 }
